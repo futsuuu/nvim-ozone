@@ -8,4 +8,9 @@ run = "nvim -l .config/gen_luarc.lua .luarc.json .tmp/luarc.stable.json"
 [tasks."check:luals"]
 depends = ["luarc", "fmt:stylua"]
 run = "lua-language-server --configpath=.tmp/luarc.stable.json --check=. --checklevel=Hint"
-sources = [".tmp/luarc.stable.json", "[!.]*/**/*.lua"]
+sources = [
+  ".tmp/luarc.stable.json",
+  ".config/**/*.lua",
+  "lua/**/*.lua",
+  "test/**/*.lua",
+]

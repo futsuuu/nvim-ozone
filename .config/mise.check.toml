@@ -5,8 +5,14 @@ stylua = "latest"
 [tasks."check:luals"]
 depends = ["luarc", "fmt:stylua"]
 run = "lua-language-server --configpath=.luarc.json --check=. --checklevel=Hint"
-sources = [".luarc.json", "[!.]*/**/*.lua"]
+sources = [".luarc.json", ".config/**/*.lua", "lua/**/*.lua", "test/**/*.lua"]
 
 [tasks."fmt:stylua"]
 run = "stylua ."
-sources = [".editorconfig", ".stylua.toml", "[!.]*/**/*.lua"]
+sources = [
+  ".editorconfig",
+  ".stylua.toml",
+  ".config/**/*.lua",
+  "lua/**/*.lua",
+  "test/**/*.lua",
+]
