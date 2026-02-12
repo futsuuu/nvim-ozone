@@ -22,19 +22,28 @@ function coro.current()
     return co
 end
 
----@param message any
----@param level? integer
----@return any message
-function coro.traceback(message, level)
-    local traceback = debug.traceback(message, level)
+--- A wrapper of `debug.traceback()`.
+---
+--- NOTE: this is only intended to be used for debugging purpose.
+---@overload fun(message: any, level?: integer): message: any
+function coro.traceback(...)
+    local traceback ---@type any
+    if select("#", ...) == 0 then
+        traceback = debug.traceback("", 2):sub(#"\n" + 1)
+    else
+        assert(type(...) ~= "thread", "unimplemented")
+        local message, level = ... ---@type any, integer?
+        traceback = debug.traceback(message, (level or 1) + 1)
+    end
     if type(traceback) ~= "string" then
         return traceback
     end
     local co = coroutine.running()
     local cx = co and managed[co] ---@type ozone.x.coro.Context?
-    while cx do
-        traceback = traceback .. cx.traceback
-        cx = cx.parent and managed[cx.parent]
+    while co and cx do
+        traceback = ("%s\n\t^-- %s%s"):format(traceback, coroutine.status(co), cx.traceback)
+        co = cx.parent
+        cx = co and managed[co]
     end
     traceback = traceback:gsub("\n\t%[builtin#21%]: at 0x%x+", "") -- remove `xpcall`
     return traceback
@@ -68,7 +77,7 @@ function coro.spawn(fn, ...)
     local co = coroutine.create(xpcall)
     managed[co] = {
         parent = coro.current(),
-        traceback = debug.traceback("dummy", 2):gsub("^dummy\nstack traceback:", ""),
+        traceback = debug.traceback("", 2):sub(#"\nstack traceback:" + 1),
     }
     handle_resume_result_of_xpcall(co, coroutine.resume(co, fn, coro.traceback, ...))
     return co
