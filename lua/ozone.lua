@@ -98,7 +98,7 @@ local ozone = {
     ---@return nil
     run = function()
         assert(vim.v.vim_did_enter == 0)
-        local co = coro.spawn(function()
+        coro.wait(function()
             -- TODO: evaluate all build scripts
             require("_build")
             local script = build_instance:generate_script()
@@ -107,7 +107,6 @@ local ozone = {
                 chunk()
             end
         end)
-        coro.join(co)
     end,
 }
 

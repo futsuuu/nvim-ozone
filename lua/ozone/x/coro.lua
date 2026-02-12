@@ -94,14 +94,6 @@ function coro.await(fn, ...)
     return coroutine.yield()
 end
 
---- Blocks Neovim until the coroutine `co` finishes.
----@param co thread
-function coro.join(co)
-    vim.wait(2 ^ 20, function()
-        return coroutine.status(co) == "dead"
-    end)
-end
-
 do
     ---@param ... any
     ---@return table
@@ -112,11 +104,14 @@ do
     ---@param fn async fun(...: any): ...: any
     ---@param ... any
     ---@return any ...
-    function coro.block_on(fn, ...)
+    function coro.wait(fn, ...)
         local result = nil ---@type table?
-        coro.join(coro.spawn(function(...)
+        local co = coro.spawn(function(...)
             result = pack(fn(...))
-        end, ...))
+        end, ...)
+        vim.wait(2 ^ 20, function()
+            return coroutine.status(co) == "dead"
+        end)
         assert(result)
         return unpack(result, 1, result[0])
     end
