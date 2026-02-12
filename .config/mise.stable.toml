@@ -1,0 +1,11 @@
+# To fix the version with a lock file, use aqua as the backend instead of vfox.
+[tools."aqua:neovim/neovim"]
+version = "latest"
+
+[tasks.luarc]
+run = "nvim -l .config/gen_luarc.lua .luarc.json .tmp/luarc.stable.json"
+
+[tasks."check:luals"]
+depends = ["luarc", "fmt:stylua"]
+run = "lua-language-server --configpath=.tmp/luarc.stable.json --check=. --checklevel=Hint"
+sources = [".tmp/luarc.stable.json", "[!.]*/**/*.lua"]

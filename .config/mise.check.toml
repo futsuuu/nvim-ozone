@@ -1,0 +1,12 @@
+[tools]
+lua-language-server = "latest"
+stylua = "latest"
+
+[tasks."check:luals"]
+depends = ["luarc", "fmt:stylua"]
+run = "lua-language-server --configpath=.luarc.json --check=. --checklevel=Hint"
+sources = [".luarc.json", "[!.]*/**/*.lua"]
+
+[tasks."fmt:stylua"]
+run = "stylua ."
+sources = [".editorconfig", ".stylua.toml", "[!.]*/**/*.lua"]

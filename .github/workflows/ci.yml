@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+env:
+  MISE_LOCKED: 1
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
+        nvim:
+          - stable
+          - nightly
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      MISE_ENV: ${{ matrix.nvim }}
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+      - run: mise tasks run test
+
+  check:
+    strategy:
+      matrix:
+        nvim:
+          - stable
+          - nightly
+
+    runs-on: ubuntu-latest
+
+    env:
+      MISE_ENV: check,${{ matrix.nvim }}
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+      - run: mise tasks run check
+
+  format:
+    needs:
+      - test
+      - check
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    env:
+      MISE_ENV: check
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+      - run: mise tasks run fmt
+      - uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: "style: apply formatter changes"
+          commit_user_name: "github-actions[bot]"
+          commit_user_email: "github-actions[bot]@users.noreply.github.com"
+          commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"

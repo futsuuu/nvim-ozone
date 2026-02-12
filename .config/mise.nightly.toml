@@ -1,0 +1,10 @@
+[tools.neovim]
+version = "nightly"
+
+[tasks.luarc]
+run = "nvim -l .config/gen_luarc.lua .luarc.json .tmp/luarc.nightly.json"
+
+[tasks."check:luals"]
+depends = ["luarc", "fmt:stylua"]
+run = "lua-language-server --configpath=.tmp/luarc.nightly.json --check=. --checklevel=Hint"
+sources = [".tmp/luarc.nightly.json", "[!.]*/**/*.lua"]

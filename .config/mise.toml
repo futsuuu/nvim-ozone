@@ -1,0 +1,20 @@
+[settings]
+experimental = true
+lockfile = true
+
+[hooks]
+postinstall = "{{ mise_bin }} tasks run luarc"
+
+[tasks]
+check.depends = "check:*"
+fmt.depends = "fmt:*"
+
+[tasks."fmt:mise"]
+run = "{{ mise_bin }} fmt --env check,stable,nightly --all"
+sources = [".config/mise*.toml"]
+
+[tasks.luarc]
+run = "nvim -l .config/gen_luarc.lua .luarc.json"
+
+[tasks.test]
+run = "nvim -l test/runner.lua"
