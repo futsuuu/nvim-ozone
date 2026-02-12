@@ -5,18 +5,18 @@ local coro = {}
 
 --- TODO: make to work with unmanaged coroutines
 
----@class ozone.x.coro.State
+---@class ozone.x.coro.Context
 ---@field parent? thread
 ---@field traceback string
----@type table<thread, ozone.x.coro.State>
-local state_map = setmetatable({}, { __mode = "k" })
+---@type table<thread, ozone.x.coro.Context>
+local managed = setmetatable({}, { __mode = "k" })
 
 function coro.current()
     local co = coroutine.running()
     if not co then
         return nil, "currently running in the main thread"
     end
-    if not state_map[co] then
+    if not managed[co] then
         return nil, ("%s is not managed by %q"):format(co, modname)
     end
     return co
@@ -44,10 +44,10 @@ do
             error(err)
         end
         ---@cast err string
-        local state = state_map[co] ---@type ozone.x.coro.State?
-        while state do
-            err = err .. state.traceback
-            state = state.parent and state_map[state.parent]
+        local cx = managed[co] ---@type ozone.x.coro.Context?
+        while cx do
+            err = err .. cx.traceback
+            cx = cx.parent and managed[cx.parent]
         end
         -- TODO: reimplement `debug.traceback()`
         err = err:gsub("\n\t%[builtin#21%]: at 0x%x+", "") -- remove `xpcall`
@@ -66,7 +66,7 @@ end
 ---@param ... any
 function coro.spawn(fn, ...)
     local co = coroutine.create(xpcall)
-    state_map[co] = {
+    managed[co] = {
         parent = coro.current(),
         traceback = debug.traceback("dummy", 2):gsub("^dummy\nstack traceback:", ""),
     }
