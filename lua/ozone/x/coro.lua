@@ -22,44 +22,44 @@ function coro.current()
     return co
 end
 
----@type fun(co: thread, ...: any): ...: any
-local resume_coroutine
-do
-    ---@param co thread
-    ---@param resume_success boolean
-    ---@param second any
-    ---@param ... any
-    ---@return any ...
-    local function handle_result(co, resume_success, second, ...)
-        assert(resume_success)
-        if coroutine.status(co) ~= "dead" then
-            return second, ...
-        end
-        local xpcall_success = second ---@type boolean
-        if xpcall_success then
-            return ...
-        end
-        local err = ...
-        if type(err) ~= "string" then
-            error(err)
-        end
-        ---@cast err string
-        local cx = managed[co] ---@type ozone.x.coro.Context?
-        while cx do
-            err = err .. cx.traceback
-            cx = cx.parent and managed[cx.parent]
-        end
-        -- TODO: reimplement `debug.traceback()`
-        err = err:gsub("\n\t%[builtin#21%]: at 0x%x+", "") -- remove `xpcall`
-        error(setmetatable({}, {
-            __tostring = function()
-                return err
-            end,
-        }))
+---@param message any
+---@param level? integer
+---@return any message
+function coro.traceback(message, level)
+    local traceback = debug.traceback(message, level)
+    if type(traceback) ~= "string" then
+        return traceback
     end
-    function resume_coroutine(co, ...)
-        return handle_result(co, coroutine.resume(co, ...))
+    local co = coroutine.running()
+    local cx = co and managed[co] ---@type ozone.x.coro.Context?
+    while cx do
+        traceback = traceback .. cx.traceback
+        cx = cx.parent and managed[cx.parent]
     end
+    traceback = traceback:gsub("\n\t%[builtin#21%]: at 0x%x+", "") -- remove `xpcall`
+    return traceback
+end
+
+---@param co thread
+---@param resume_success boolean
+---@param second any
+---@param ... any
+---@return any ...
+local function handle_resume_result_of_xpcall(co, resume_success, second, ...)
+    assert(resume_success)
+    if coroutine.status(co) ~= "dead" then
+        return second, ...
+    end
+    local xpcall_success = second ---@type boolean
+    if xpcall_success then
+        return ...
+    end
+    local err = ...
+    error(type(err) == "string" and setmetatable({}, {
+        __tostring = function()
+            return err
+        end,
+    }) or err)
 end
 
 ---@param fn async fun(...)
@@ -70,7 +70,7 @@ function coro.spawn(fn, ...)
         parent = coro.current(),
         traceback = debug.traceback("dummy", 2):gsub("^dummy\nstack traceback:", ""),
     }
-    resume_coroutine(co, fn, debug.traceback, ...)
+    handle_resume_result_of_xpcall(co, coroutine.resume(co, fn, coro.traceback, ...))
     return co
 end
 
@@ -87,7 +87,7 @@ function coro.await(fn, ...)
         has_resumed = true
         local result = { [0] = select("#", ...), ... }
         return vim.schedule(function()
-            resume_coroutine(co, unpack(result, 1, result[0]))
+            handle_resume_result_of_xpcall(co, coroutine.resume(co, unpack(result, 1, result[0])))
         end)
     end
     fn(resume, ...)
