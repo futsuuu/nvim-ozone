@@ -8,6 +8,7 @@ local coro = {}
 ---@class ozone.x.coro.Context
 ---@field parent? thread
 ---@field callback fun(success: boolean, ...: any)
+---@field transparent_xpcall boolean
 ---@field traceback string
 ---@type table<thread, ozone.x.coro.Context>
 local managed = setmetatable({}, { __mode = "k" })
@@ -52,6 +53,37 @@ end
 
 ---@param co thread
 ---@param resume_success boolean
+---@param ... any
+---@return any ...
+local function handle_resume_result(co, resume_success, ...)
+    if coroutine.status(co) ~= "dead" then
+        assert(resume_success)
+        return ...
+    end
+    local cx = managed[co]
+    if cx then
+        return cx.callback(resume_success, ...)
+    end
+end
+
+---@param callback fun(success: boolean, ...: any)
+---@param fn async fun(...): ...: any
+---@param ... any
+---@return thread
+function coro.pspawn(callback, fn, ...)
+    local co = coroutine.create(fn)
+    managed[co] = {
+        parent = coro.current(),
+        callback = callback,
+        transparent_xpcall = false,
+        traceback = debug.traceback("", 2):sub(#"\nstack traceback:" + 1),
+    }
+    handle_resume_result(co, coroutine.resume(co, ...))
+    return co
+end
+
+---@param co thread
+---@param resume_success boolean
 ---@param second any
 ---@param ... any
 ---@return any ...
@@ -77,27 +109,11 @@ function coro.xpspawn(callback, fn, message_handler, ...)
     managed[co] = {
         parent = coro.current(),
         callback = callback,
+        transparent_xpcall = true,
         traceback = debug.traceback("", 2):sub(#"\nstack traceback:" + 1),
     }
     handle_resume_result_of_xpcall(co, coroutine.resume(co, fn, message_handler, ...))
     return co
-end
-
-do
-    ---@param message any
-    ---@return any
-    local function id(message)
-        return message
-    end
-
-    ---@param callback fun(success: boolean, ...: any)
-    ---@param fn async fun(...): ...: any
-    ---@param ... any
-    ---@return thread
-    function coro.pspawn(callback, fn, ...)
-        -- TODO(perf): use `coroutine.create` directly
-        return coro.xpspawn(callback, fn, id, ...)
-    end
 end
 
 do
@@ -136,7 +152,15 @@ function coro.await(fn, ...)
         has_resumed = true
         local result = { [0] = select("#", ...), ... }
         return vim.schedule(function()
-            handle_resume_result_of_xpcall(co, coroutine.resume(co, unpack(result, 1, result[0])))
+            local cx = managed[co]
+            if cx and cx.transparent_xpcall then
+                handle_resume_result_of_xpcall(
+                    co,
+                    coroutine.resume(co, unpack(result, 1, result[0]))
+                )
+            else
+                handle_resume_result(co, coroutine.resume(co, unpack(result, 1, result[0])))
+            end
         end)
     end
     fn(resume, ...)
