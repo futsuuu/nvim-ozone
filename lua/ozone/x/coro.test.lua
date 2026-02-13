@@ -66,3 +66,49 @@ stack traceback:
     pattern = pattern:gsub("    ", "\t")
     assert(string.match(traceback, pattern))
 end)
+
+---@param ... any
+---@return table
+local function pack(...)
+    return { n = select("#", ...), ... }
+end
+
+runner.add("xpspawn() passes results to callback", function()
+    local result = pack(coro.await(coro.xpspawn, function(...)
+        coro.await(vim.schedule)
+        return ...
+    end, function(message)
+        return message
+    end, nil, "a", nil, "b"))
+    assert(result.n == 5)
+    assert(result[1] == true)
+    assert(result[2] == nil)
+    assert(result[3] == "a")
+    assert(result[4] == nil)
+    assert(result[5] == "b")
+end)
+
+runner.add("xpspawn() starts a new coroutine with the given message handler", function()
+    local err = {}
+    local result = pack(coro.await(coro.xpspawn, function()
+        coro.await(vim.schedule)
+        return error(err)
+    end, function(message)
+        assert(message == err)
+        return debug.getinfo(2, "f").func
+    end))
+    assert(result.n == 2)
+    assert(result[1] == false)
+    assert(result[2] == error, "message handler must not be wrapped without a tail call")
+end)
+
+runner.add("pspawn() passes through raw errors", function()
+    local err = {}
+    local result = pack(coro.await(coro.pspawn, function()
+        coro.await(vim.schedule)
+        error(err)
+    end))
+    assert(result.n == 2)
+    assert(result[1] == false)
+    assert(result[2] == err)
+end)

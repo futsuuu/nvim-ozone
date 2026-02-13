@@ -7,6 +7,7 @@ local coro = {}
 
 ---@class ozone.x.coro.Context
 ---@field parent? thread
+---@field callback fun(success: boolean, ...: any)
 ---@field traceback string
 ---@type table<thread, ozone.x.coro.Context>
 local managed = setmetatable({}, { __mode = "k" })
@@ -60,27 +61,66 @@ local function handle_resume_result_of_xpcall(co, resume_success, second, ...)
         return second, ...
     end
     local xpcall_success = second ---@type boolean
-    if xpcall_success then
-        return ...
+    local cx = managed[co]
+    if cx then
+        return cx.callback(xpcall_success, ...)
     end
-    local err = ...
-    error(type(err) == "string" and setmetatable({}, {
-        __tostring = function()
-            return err
-        end,
-    }) or err)
 end
 
----@param fn async fun(...)
+---@param callback fun(success: boolean, ...: any)
+---@param fn async fun(...): ...: any
+---@param message_handler fun(message: any): any
 ---@param ... any
-function coro.spawn(fn, ...)
+---@return thread
+function coro.xpspawn(callback, fn, message_handler, ...)
     local co = coroutine.create(xpcall)
     managed[co] = {
         parent = coro.current(),
+        callback = callback,
         traceback = debug.traceback("", 2):sub(#"\nstack traceback:" + 1),
     }
-    handle_resume_result_of_xpcall(co, coroutine.resume(co, fn, coro.traceback, ...))
+    handle_resume_result_of_xpcall(co, coroutine.resume(co, fn, message_handler, ...))
     return co
+end
+
+do
+    ---@param message any
+    ---@return any
+    local function id(message)
+        return message
+    end
+
+    ---@param callback fun(success: boolean, ...: any)
+    ---@param fn async fun(...): ...: any
+    ---@param ... any
+    ---@return thread
+    function coro.pspawn(callback, fn, ...)
+        -- TODO(perf): use `coroutine.create` directly
+        return coro.xpspawn(callback, fn, id, ...)
+    end
+end
+
+do
+    ---@param success boolean
+    ---@param ... any
+    ---@return nil
+    local function default_callback(success, ...)
+        if not success then
+            local err = ...
+            error(type(err) == "string" and setmetatable({}, {
+                __tostring = function()
+                    return err
+                end,
+            }) or err)
+        end
+    end
+
+    ---@param fn async fun(...): ...: any
+    ---@param ... any
+    ---@return thread
+    function coro.spawn(fn, ...)
+        return coro.xpspawn(default_callback, fn, coro.traceback, ...)
+    end
 end
 
 ---@param fn fun(resume: fun(...: any), ...: any)
