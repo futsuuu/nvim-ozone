@@ -51,6 +51,16 @@ function coro.traceback(...)
     return traceback
 end
 
+---@param fn fun(...: any)
+---@param ... any
+---@return nil
+local function schedule(fn, ...)
+    local args = { [0] = select("#", ...), ... }
+    return vim.schedule(function()
+        fn(unpack(args, 1, args[0]))
+    end)
+end
+
 ---@param co thread
 ---@param resume_success boolean
 ---@param ... any
@@ -62,7 +72,7 @@ local function handle_resume_result(co, resume_success, ...)
     end
     local cx = managed[co]
     if cx then
-        return cx.callback(resume_success, ...)
+        schedule(cx.callback, resume_success, ...)
     end
 end
 
@@ -95,7 +105,7 @@ local function handle_resume_result_of_xpcall(co, resume_success, second, ...)
     local xpcall_success = second ---@type boolean
     local cx = managed[co]
     if cx then
-        return cx.callback(xpcall_success, ...)
+        schedule(cx.callback, xpcall_success, ...)
     end
 end
 

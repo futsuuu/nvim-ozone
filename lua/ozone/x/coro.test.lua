@@ -73,6 +73,20 @@ local function pack(...)
     return { n = select("#", ...), ... }
 end
 
+runner.add("xpspawn() doesn't execute callback immediately", function()
+    local body = false
+    local callback = false
+    coro.xpspawn(function()
+        callback = true
+    end, function()
+        body = true
+    end, function(msg)
+        return msg
+    end)
+    assert(body)
+    assert(not callback)
+end)
+
 runner.add("xpspawn() passes results to callback", function()
     local result = pack(coro.await(coro.xpspawn, function(...)
         coro.await(vim.schedule)
@@ -100,6 +114,18 @@ runner.add("xpspawn() starts a new coroutine with the given message handler", fu
     assert(result.n == 2)
     assert(result[1] == false)
     assert(result[2] == error, "message handler must not be wrapped without a tail call")
+end)
+
+runner.add("pspawn() doesn't execute callback immediately", function()
+    local body = false
+    local callback = false
+    coro.pspawn(function()
+        callback = true
+    end, function()
+        body = true
+    end)
+    assert(body)
+    assert(not callback)
 end)
 
 runner.add("pspawn() passes through raw errors", function()
