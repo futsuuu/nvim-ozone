@@ -36,7 +36,7 @@ function Case:run()
         .. self.name
     io.stderr:write(" start: ", full_name, "\n")
     -- TODO: handle errors
-    coro.block_on(self.fn)
+    coro.wait(self.fn)
     io.stderr:write("finish: ", full_name, "\n")
 end
 

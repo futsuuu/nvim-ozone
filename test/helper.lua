@@ -6,7 +6,7 @@ local helper = {}
 ---@param entries? table<string, string>
 ---@return string root_dir
 function helper.temp_dir(entries)
-    return coro.block_on(function()
+    return coro.wait(function()
         local root_dir = vim.fs.joinpath(vim.fn.stdpath("cache"), fs.temp_name())
         assert(fs.create_dir_all(root_dir))
         for rel_path, content in pairs(entries or {}) do
