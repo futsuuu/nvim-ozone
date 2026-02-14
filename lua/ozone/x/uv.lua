@@ -77,7 +77,7 @@ end
 
 ---@param path string
 ---@param new_path string
----@param flags { dir?: boolean, junction?: boolean }?
+---@param flags uv.aliases.fs_symlink_flags | integer
 ---@return boolean? success, string? err
 function M.fs_symlink(path, new_path, flags)
     return reverse(coro.await(f3, uv.fs_symlink, path, new_path, flags))
@@ -91,7 +91,7 @@ function M.fs_mkdir(path, mode)
 end
 
 ---@param path string
----@param flags string | integer
+---@param flags uv.aliases.fs_access_flags | integer
 ---@param mode integer
 ---@return integer? fd, string? err
 function M.fs_open(path, flags, mode)
@@ -125,7 +125,7 @@ function M.fs_read(fd, size, offset)
 end
 
 ---@param dir luv_dir_t
----@return { name: string, type: string }[]? entries, string? err
+---@return uv.aliases.fs_readdir_entries? entries, string? err
 function M.fs_readdir(dir)
     return reverse(coro.await(f1, uv.fs_readdir, dir))
 end
