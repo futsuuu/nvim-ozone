@@ -3,8 +3,6 @@ local modname = ...
 
 local coro = {}
 
---- TODO: make to work with unmanaged coroutines
-
 ---@class ozone.x.coro.Context
 ---@field parent? thread
 ---@field callback fun(success: boolean, ...: any)
@@ -25,8 +23,6 @@ function coro.current()
 end
 
 --- A wrapper of `debug.traceback()`.
----
---- NOTE: this is only intended to be used for debugging purpose.
 ---@overload fun(message: any, level?: integer): message: any
 function coro.traceback(...)
     local traceback ---@type any
