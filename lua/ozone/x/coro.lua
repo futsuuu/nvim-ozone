@@ -136,35 +136,36 @@ do
     end
 end
 
---- Suspends the current coroutine until `executor` calls `resume(...)`.
----
---- NOTE: `resume` always resumes the coroutine asynchronously.
----@param executor fun(resume: fun(...: any), ...: any)
----@param ... any additional arguments for `executor`
----@return any ... arguments passed to `resume`
-function coro.await(executor, ...)
-    local co = assert(coroutine.running(), "await() must be called in the coroutine")
-    local has_resumed = false
-    local function resume(...)
-        if has_resumed then
-            return
+do
+    ---@param co thread
+    ---@param ... any
+    ---@return nil
+    local function resume(co, ...)
+        local cx = managed[co]
+        if cx and cx.transparent_xpcall then
+            handle_resume_result_of_xpcall(co, coroutine.resume(co, ...))
+        else
+            handle_resume_result(co, coroutine.resume(co, ...))
         end
-        has_resumed = true
-        local result = { [0] = select("#", ...), ... }
-        return vim.schedule(function()
-            local cx = managed[co]
-            if cx and cx.transparent_xpcall then
-                handle_resume_result_of_xpcall(
-                    co,
-                    coroutine.resume(co, unpack(result, 1, result[0]))
-                )
-            else
-                handle_resume_result(co, coroutine.resume(co, unpack(result, 1, result[0])))
-            end
-        end)
     end
-    executor(resume, ...)
-    return coroutine.yield()
+
+    --- Suspends the current coroutine until `executor` calls `resume(...)`.
+    ---
+    --- NOTE: `resume` always resumes the coroutine asynchronously.
+    ---@param executor fun(resume: fun(...: any), ...: any)
+    ---@param ... any additional arguments for `executor`
+    ---@return any ... arguments passed to `resume`
+    function coro.await(executor, ...)
+        local co = assert(coroutine.running(), "await() must be called in the coroutine")
+        local has_resumed = false
+        executor(function(...)
+            if not has_resumed then
+                has_resumed = true
+                return schedule(resume, co, ...)
+            end
+        end, ...)
+        return coroutine.yield()
+    end
 end
 
 ---@param fn async fun(...: any): ...: any
