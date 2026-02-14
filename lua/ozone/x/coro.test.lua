@@ -36,7 +36,7 @@ runner.add("traceback() works like debug.traceback()", function()
     end)
 end)
 
-runner.add("traceback() shows coroutine boundaries and statuses", function()
+runner.add("traceback() indicates coroutine boundaries and statuses", function()
     local traceback = coro.await(function(resume)
         coro.spawn(function()
             coro.spawn(function()
@@ -65,6 +65,20 @@ stack traceback:
     pattern = pattern:gsub("short_src", vim.pesc(short_src))
     pattern = pattern:gsub("    ", "\t")
     assert(string.match(traceback, pattern))
+end)
+
+runner.add("traceback() indicates unmanaged coroutine", function()
+    local co = coroutine.create(function()
+        return coro.traceback("hello")
+    end)
+    local _, traceback = assert(coroutine.resume(co))
+    local expected = [[
+hello
+stack traceback:
+    ^-- running (unmanaged)
+    ...]]
+    expected = expected:gsub("    ", "\t")
+    assert(traceback == expected)
 end)
 
 ---@param ... any

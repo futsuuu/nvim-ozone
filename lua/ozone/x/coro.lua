@@ -1,26 +1,13 @@
----@type string
-local modname = ...
-
 local coro = {}
 
 ---@class ozone.x.coro.Context
+--- The parent coroutine, or `nil` if the parent is the main thread.
 ---@field parent? thread
 ---@field callback fun(success: boolean, ...: any)
 ---@field transparent_xpcall boolean
 ---@field traceback string
 ---@type table<thread, ozone.x.coro.Context>
 local managed = setmetatable({}, { __mode = "k" })
-
-function coro.current()
-    local co = coroutine.running()
-    if not co then
-        return nil, "currently running in the main thread"
-    end
-    if not managed[co] then
-        return nil, ("%s is not managed by %q"):format(co, modname)
-    end
-    return co
-end
 
 --- A wrapper of `debug.traceback()`.
 ---@overload fun(message: any, level?: integer): message: any
@@ -37,11 +24,15 @@ function coro.traceback(...)
         return traceback
     end
     local co = coroutine.running()
-    local cx = co and managed[co] ---@type ozone.x.coro.Context?
-    while co and cx do
-        traceback = ("%s\n\t^-- %s%s"):format(traceback, coroutine.status(co), cx.traceback)
-        co = cx.parent
-        cx = co and managed[co]
+    while co do
+        local cx = managed[co] ---@type ozone.x.coro.Context?
+        if cx then
+            traceback = ("%s\n\t^-- %s%s"):format(traceback, coroutine.status(co), cx.traceback)
+            co = cx.parent
+        else
+            traceback = ("%s\n\t^-- %s (unmanaged)\n\t..."):format(traceback, coroutine.status(co))
+            break
+        end
     end
     traceback = traceback:gsub("\n\t%[builtin#21%]: at 0x%x+", "") -- remove `xpcall`
     return traceback
@@ -79,7 +70,7 @@ end
 function coro.pspawn(callback, fn, ...)
     local co = coroutine.create(fn)
     managed[co] = {
-        parent = coro.current(),
+        parent = coroutine.running(),
         callback = callback,
         transparent_xpcall = false,
         traceback = debug.traceback("", 2):sub(#"\nstack traceback:" + 1),
@@ -113,7 +104,7 @@ end
 function coro.xpspawn(callback, fn, message_handler, ...)
     local co = coroutine.create(xpcall)
     managed[co] = {
-        parent = coro.current(),
+        parent = coroutine.running(),
         callback = callback,
         transparent_xpcall = true,
         traceback = debug.traceback("", 2):sub(#"\nstack traceback:" + 1),
@@ -145,11 +136,14 @@ do
     end
 end
 
----@param fn fun(resume: fun(...: any), ...: any)
----@param ... any additional arguments for `fn`
+--- Suspends the current coroutine until `executor` calls `resume(...)`.
+---
+--- NOTE: `resume` always resumes the coroutine asynchronously.
+---@param executor fun(resume: fun(...: any), ...: any)
+---@param ... any additional arguments for `executor`
 ---@return any ... arguments passed to `resume`
-function coro.await(fn, ...)
-    local co = assert(coro.current())
+function coro.await(executor, ...)
+    local co = assert(coroutine.running(), "await() must be called in the coroutine")
     local has_resumed = false
     local function resume(...)
         if has_resumed then
@@ -169,7 +163,7 @@ function coro.await(fn, ...)
             end
         end)
     end
-    fn(resume, ...)
+    executor(resume, ...)
     return coroutine.yield()
 end
 
