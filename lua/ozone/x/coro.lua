@@ -177,27 +177,27 @@ function coro.await(fn, ...)
     return coroutine.yield()
 end
 
-do
-    ---@param ... any
-    ---@return table
-    local function pack(...)
-        return { [0] = select("#", ...), ... }
+---@param fn async fun(...: any): ...: any
+---@param ... any
+---@return any ...
+function coro.wait(fn, ...)
+    local result = nil ---@type table?
+    local co = coro.xpspawn(function(...)
+        result = { [0] = select("#", ...), ... }
+    end, fn, coro.traceback, ...)
+    vim.wait(2 ^ 20, function()
+        return result ~= nil
+    end)
+    assert(result)
+    assert(coroutine.status(co) == "dead")
+    if not result[1] then
+        error(setmetatable({}, {
+            __tostring = function()
+                return tostring(result[2])
+            end,
+        }))
     end
-
-    ---@param fn async fun(...: any): ...: any
-    ---@param ... any
-    ---@return any ...
-    function coro.wait(fn, ...)
-        local result = nil ---@type table?
-        local co = coro.spawn(function(...)
-            result = pack(fn(...))
-        end, ...)
-        vim.wait(2 ^ 20, function()
-            return coroutine.status(co) == "dead"
-        end)
-        assert(result)
-        return unpack(result, 1, result[0])
-    end
+    return unpack(result, 2, result[0])
 end
 
 return coro
