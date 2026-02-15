@@ -1,0 +1,55 @@
+local runner = require("test.runner")
+
+local Queue = require("ozone.x.queue")
+
+runner.add("put() puts values that can be retrieved using get()", function()
+    local q = Queue.new()
+    q:put("first")
+    q:put("second")
+    assert(q:get() == "first")
+    q:put("third")
+    assert(q:get() == "second")
+    assert(q:get() == "third")
+end)
+
+runner.add("put() and get() works with multi-values", function()
+    local q = Queue.new()
+    q:put()
+    q:put()
+    q:put(nil, nil, nil)
+    assert(select("#", q:get()) == 0)
+    assert(select("#", q:get()) == 0)
+    assert(select("#", q:get()) == 3)
+end)
+
+runner.add("len() returns the number of chunks in the queue", function()
+    local q = Queue.new()
+    assert(q:len() == 0)
+    q:put("first")
+    assert(q:len() == 1)
+    q:put("second", "third")
+    assert(q:len() == 2)
+    q:get()
+    assert(q:len() == 1)
+    q:get()
+    assert(q:len() == 0)
+end)
+
+runner.add("put() and get() can be called many times", function()
+    local q = Queue.new()
+    for i = 1, 100000 do
+        q:put(i)
+    end
+    for i = 1, 100000 do
+        assert(q:get() == i)
+    end
+end)
+
+runner.add("get() awaits for a new value if empty", function()
+    local q = Queue.new()
+    vim.schedule(function()
+        q:put("value")
+    end)
+    assert(q:len() == 0)
+    assert(q:get() == "value")
+end)
