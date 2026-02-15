@@ -1,5 +1,9 @@
-local Script = require("ozone.script")
+local Queue = require("ozone.x.queue")
+local coro = require("ozone.x.coro")
 local fs = require("ozone.x.fs")
+
+local Script = require("ozone.script")
+local git = require("ozone.git")
 
 ---@class ozone.Build.PluginSpec
 ---@field path? string Plugin directory path
@@ -28,6 +32,14 @@ local fs = require("ozone.x.fs")
 local Build = {}
 ---@private
 Build.__index = Build
+
+---@class ozone.Build.PluginBuildResult
+---@field name string
+---@field spec ozone.Build.ResolvedPluginSpec
+---@field install_success boolean?
+---@field install_err string?
+---@field path_is_dir boolean
+---@field has_after_dir boolean
 
 ---@param name string
 ---@return string
@@ -144,26 +156,9 @@ end
 ---@return boolean? success
 ---@return string? err
 function Build:_checkout_git_plugin_version(name, path, version)
-    local result = vim.system({
-        "git",
-        "-C",
-        path,
-        "checkout",
-        version,
-    }, { text = true }):wait()
-    if result.code ~= 0 or result.signal ~= 0 then
-        local stdout = type(result.stdout) == "string" and result.stdout or ""
-        local stderr = type(result.stderr) == "string" and result.stderr or ""
-        return nil,
-            ("plugin %q checkout failed: %s at %s (code=%d, signal=%d)%s%s"):format(
-                name,
-                version,
-                path,
-                result.code,
-                result.signal,
-                stdout ~= "" and ("\n---- stdout ----\n" .. stdout) or "",
-                stderr ~= "" and ("\n---- stderr ----\n" .. stderr) or ""
-            )
+    local success, checkout_err = git.checkout(path, version)
+    if not success then
+        return nil, ("plugin %q %s"):format(name, checkout_err or "checkout failed")
     end
 
     return true, nil
@@ -193,7 +188,7 @@ function Build:_install_git_plugin(name, spec)
     local parent_dir = vim.fs.dirname(spec.path)
     if parent_dir then
         local success, create_dir_err = fs.create_dir_all(parent_dir)
-        if not success then
+        if not success and not fs.is_dir(parent_dir) then
             return nil,
                 ("plugin %q failed to create parent directory %s: %s"):format(
                     name,
@@ -203,26 +198,9 @@ function Build:_install_git_plugin(name, spec)
         end
     end
 
-    local result = vim.system({
-        "git",
-        "clone",
-        "--filter=blob:none",
-        source.url,
-        spec.path,
-    }, { text = true }):wait()
-    if result.code ~= 0 or result.signal ~= 0 then
-        local stdout = type(result.stdout) == "string" and result.stdout or ""
-        local stderr = type(result.stderr) == "string" and result.stderr or ""
-        return nil,
-            ("plugin %q clone failed: %s -> %s (code=%d, signal=%d)%s%s"):format(
-                name,
-                source.url,
-                spec.path,
-                result.code,
-                result.signal,
-                stdout ~= "" and ("\n---- stdout ----\n" .. stdout) or "",
-                stderr ~= "" and ("\n---- stderr ----\n" .. stderr) or ""
-            )
+    local success, clone_err = git.clone(source.url, spec.path)
+    if not success then
+        return nil, ("plugin %q %s"):format(name, clone_err or "clone failed")
     end
 
     if source.version then
@@ -264,18 +242,56 @@ end
 ---@return string? path
 function Build:generate_script()
     local script = Script.new()
+    local queue = Queue.new()
+    local pending = 0 ---@type integer
+    local names = {} ---@type string[]
+
     for name, spec in pairs(self._plugins) do
-        local success, install_err = self:_install_plugin(name, spec)
-        if not success then
-            self:add_error(install_err)
+        table.insert(names, name)
+        pending = pending + 1
+        coro.pspawn(queue.put_fn, function(plugin_name, plugin_spec)
+            local success, install_err = self:_install_plugin(plugin_name, plugin_spec)
+            local path_is_dir = fs.is_dir(plugin_spec.path)
+            local has_after_dir = path_is_dir and fs.is_dir(plugin_spec.path .. "/after") or false
+            return {
+                name = plugin_name,
+                spec = plugin_spec,
+                install_success = success,
+                install_err = install_err,
+                path_is_dir = path_is_dir,
+                has_after_dir = has_after_dir,
+            }
+        end, name, spec)
+    end
+
+    local results = {} ---@type table<string, ozone.Build.PluginBuildResult>
+
+    for _ = 1, pending do
+        local co_success, result_or_err = queue:get()
+        if not co_success then
+            self:add_error(result_or_err)
+        else
+            local result = result_or_err ---@type ozone.Build.PluginBuildResult
+            results[result.name] = result
         end
-        if fs.is_dir(spec.path) then
-            table.insert(script.rtp_prefix, spec.path)
-            if fs.is_dir(spec.path .. "/after") then
-                table.insert(script.rtp_suffix, spec.path .. "/after")
+    end
+
+    for _, name in ipairs(names) do
+        local result = results[name]
+        if result then
+            if not result.install_success then
+                self:add_error(result.install_err)
             end
-        elseif spec.source.kind == "path" then
-            self:add_error(("plugin %q path is not a directory: %s"):format(name, spec.path))
+            if result.path_is_dir then
+                table.insert(script.rtp_prefix, result.spec.path)
+                if result.has_after_dir then
+                    table.insert(script.rtp_suffix, result.spec.path .. "/after")
+                end
+            elseif result.spec.source.kind == "path" then
+                self:add_error(
+                    ("plugin %q path is not a directory: %s"):format(name, result.spec.path)
+                )
+            end
         end
     end
 

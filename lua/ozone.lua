@@ -1,5 +1,6 @@
-local Build = require("ozone.build")
 local coro = require("ozone.x.coro")
+
+local Build = require("ozone.build")
 
 local build_instance = Build.new()
 

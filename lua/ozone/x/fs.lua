@@ -70,7 +70,11 @@ function M.create_dir_all(path, mode)
             return nil, err
         end
     end
-    return M.create_dir(normalized_path, mode)
+    local success, err = M.create_dir(normalized_path, mode)
+    if success or M.is_dir(normalized_path) then
+        return true, nil
+    end
+    return nil, err
 end
 
 ---@param path string
