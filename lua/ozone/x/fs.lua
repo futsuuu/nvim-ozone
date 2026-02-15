@@ -1,3 +1,5 @@
+local Queue = require("ozone.x.queue")
+local coro = require("ozone.x.coro")
 local uv = require("ozone.x.uv")
 
 local M = {}
@@ -86,25 +88,52 @@ end
 ---@param path string
 ---@return boolean? success, string? err
 function M.remove_dir_all(path)
-    -- TODO: async
-    if vim.fn.delete(path, "rf") == 0 then
-        return true, nil
-    else
-        return nil, "failed to remove directory"
+    local entries, read_dir_err = M.read_dir(path)
+    if not entries then
+        return nil, read_dir_err
     end
+    local queue = Queue.new()
+    local pending = 0
+    -- spawn coroutines for each entry in the directory
+    for i, entry in entries:iter() do
+        if not i then
+            return nil, entry -- entry is the error message in this case
+        end
+        pending = pending + 1
+        local entry_path = vim.fs.joinpath(path, entry.name)
+        if entry.type == "directory" then
+            coro.pspawn(queue.put_fn, M.remove_dir_all, entry_path)
+        else
+            coro.pspawn(queue.put_fn, M.remove_file, entry_path)
+        end
+    end
+    for _ = 1, pending do
+        local _, success, err = assert(queue:get())
+        if not success then
+            return nil, err
+        end
+    end
+    return M.remove_dir(path)
 end
 
 ---@class ozone.x.fs.ReadDir
 ---@field private _handle luv_dir_t
 ---@field private _entries { name: string, type: string }[]
 ---@field private _base_index integer
----@overload async fun(current_index: false | integer?): index: false | integer?, entry: any | { name: string, type: string }?
 local ReadDir = {}
 ---@private
 ReadDir.__index = ReadDir
----@private
-ReadDir.__call = ReadDir.next
 
+--- ```lua
+--- for i, entry in assert(fs.read_dir("/path/to/dir")):iter() do
+---     if i then
+---         print(entry.name .. ": " .. entry.type)
+---     else
+---         print("error: " .. entry)
+---         break
+---     end
+--- end
+--- ```
 ---@param path string
 ---@param chunk_size integer? Number of entries read at once.
 ---@return ozone.x.fs.ReadDir?
@@ -120,6 +149,12 @@ function M.read_dir(path, chunk_size)
         _base_index = 0,
     }, ReadDir --[[@as ozone.x.fs.ReadDir]])
     return self, nil
+end
+
+---@return async fun(self: self, current_index: false | integer?): index: false | integer?, entry: any | { name: string, type: string }?
+---@return self
+function ReadDir:iter()
+    return self.next, self
 end
 
 ---@param current_index false | integer?
