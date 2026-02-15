@@ -2,7 +2,7 @@
 
 ## Code Style
 
-- Always run `mise run check` and fix problems after making code changes.
+- Run `mise run check` during development and fix problems as you go.
 - Write type annotations for all function arguments and return values by default.
     - You don't need to write annotations for items with types already determined, such as callback functions or overridden methods.
 - Do not overload operators.
@@ -68,3 +68,34 @@
         -- ...
         return Bar
         ```
+
+## Commits
+
+### Before Committing
+
+- Before creating a commit, run both `mise run check` and `mise run test`.
+- Only commit after confirming there are no errors, warnings, or failing tests.
+
+### Commit Messages
+
+- Use [Conventional Commits](https://www.conventionalcommits.org/) for all commit messages.
+- Commit message format:
+    - `<type>[optional scope]: <description>`
+    - Optional body and footer can be added when needed.
+- Common `type` values:
+    - `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `ci`, `chore`
+- Write commit messages in the imperative mood (for example: `fix(parser): handle empty input`).
+- For breaking changes, mark the header with `!` (for example: `feat(config)!: ...`) and add a `BREAKING CHANGE:` footer that explains impact and migration steps.
+- In the body, describe the context and motivation (`why`), the key changes (`what`), and user-facing notes such as migration instructions when needed.
+- Example:
+    ```text
+    feat(config)!: rename `theme` option to `style`
+
+    Refactor the config API to make option names clearer and consistent.
+    Update defaults and docs to use `style`.
+    Users need to rename `theme` to `style` in their setup.
+
+    BREAKING CHANGE: The `theme` option is removed and existing configs that
+    still define `theme` will no longer be applied, so use `style` instead.
+    ```
+- Every commit message in this repository must follow this convention.
