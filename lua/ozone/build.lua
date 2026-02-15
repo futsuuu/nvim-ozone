@@ -36,8 +36,6 @@ Build.__index = Build
 ---@class ozone.Build.PluginBuildResult
 ---@field name string
 ---@field spec ozone.Build.ResolvedPluginSpec
----@field install_success boolean?
----@field install_err string?
 ---@field path_is_dir boolean
 ---@field has_after_dir boolean
 
@@ -61,10 +59,11 @@ function Build.new()
     }, Build)
 end
 
----@param message any
+---@param fmt any
+---@param ... any
 ---@return nil
-function Build:add_error(message)
-    table.insert(self._errors, type(message) == "string" and message or tostring(message))
+function Build:err(fmt, ...)
+    table.insert(self._errors, tostring(fmt):format(...))
 end
 
 ---@return string[] errors
@@ -153,78 +152,67 @@ end
 ---@param name string
 ---@param path string
 ---@param version string
----@return boolean? success
----@return string? err
 function Build:_checkout_git_plugin_version(name, path, version)
     local success, checkout_err = git.checkout(path, version)
     if not success then
-        return nil, ("plugin %q %s"):format(name, checkout_err or "checkout failed")
+        error(("plugin %q %s"):format(name, checkout_err or "checkout failed"))
     end
-
-    return true, nil
 end
 
 ---@param name string
 ---@param spec ozone.Build.ResolvedPluginSpec
----@return boolean? success
----@return string? err
 function Build:_install_git_plugin(name, spec)
     local source = spec.source
     if source.kind ~= "git" then
-        return nil,
-            ("plugin %q has unsupported source kind: %s"):format(name, tostring(source.kind))
+        error(("plugin %q has unsupported source kind: %s"):format(name, tostring(source.kind)))
     end
     if fs.exists(spec.path) then
         if fs.is_dir(spec.path) then
             if source.version then
-                return self:_checkout_git_plugin_version(name, spec.path, source.version)
+                self:_checkout_git_plugin_version(name, spec.path, source.version)
             end
-            return true, nil
+            return
         end
-        return nil,
-            ("plugin %q install path exists and is not a directory: %s"):format(name, spec.path)
+        error(("plugin %q install path exists and is not a directory: %s"):format(name, spec.path))
     end
 
     local parent_dir = vim.fs.dirname(spec.path)
     if parent_dir then
         local success, create_dir_err = fs.create_dir_all(parent_dir)
         if not success and not fs.is_dir(parent_dir) then
-            return nil,
+            error(
                 ("plugin %q failed to create parent directory %s: %s"):format(
                     name,
                     parent_dir,
                     create_dir_err or "unknown error"
                 )
+            )
         end
     end
 
     local success, clone_err = git.clone(source.url, spec.path)
     if not success then
-        return nil, ("plugin %q %s"):format(name, clone_err or "clone failed")
+        error(("plugin %q %s"):format(name, clone_err or "clone failed"))
     end
 
     if source.version then
-        return self:_checkout_git_plugin_version(name, spec.path, source.version)
+        self:_checkout_git_plugin_version(name, spec.path, source.version)
     end
-
-    return true, nil
 end
 
 ---@param name string
 ---@param spec ozone.Build.ResolvedPluginSpec
----@return boolean? success
----@return string? err
 function Build:_install_plugin(name, spec)
     if spec.source.kind == "git" then
-        return self:_install_git_plugin(name, spec)
+        self:_install_git_plugin(name, spec)
+        return
     end
 
     if spec.source.kind ~= "path" then
-        return nil,
+        error(
             ("plugin %q has unsupported source kind: %s"):format(name, tostring(spec.source.kind))
+        )
     end
-
-    return true, nil
 end
 
 ---@param name string
@@ -233,7 +221,7 @@ end
 function Build:add_plugin(name, spec)
     local resolved_spec, err = self:_normalize_plugin_spec(name, spec)
     if not resolved_spec then
-        self:add_error(err)
+        self:err("%s", err or "unknown error")
         return
     end
     self._plugins[name] = resolved_spec
@@ -250,14 +238,12 @@ function Build:generate_script()
         table.insert(names, name)
         pending = pending + 1
         coro.pspawn(queue.put_fn, function(plugin_name, plugin_spec)
-            local success, install_err = self:_install_plugin(plugin_name, plugin_spec)
+            self:_install_plugin(plugin_name, plugin_spec)
             local path_is_dir = fs.is_dir(plugin_spec.path)
             local has_after_dir = path_is_dir and fs.is_dir(plugin_spec.path .. "/after") or false
             return {
                 name = plugin_name,
                 spec = plugin_spec,
-                install_success = success,
-                install_err = install_err,
                 path_is_dir = path_is_dir,
                 has_after_dir = has_after_dir,
             }
@@ -269,7 +255,7 @@ function Build:generate_script()
     for _ = 1, pending do
         local co_success, result_or_err = queue:get()
         if not co_success then
-            self:add_error(result_or_err)
+            self:err("%s", result_or_err or "unknown error")
         else
             local result = result_or_err ---@type ozone.Build.PluginBuildResult
             results[result.name] = result
@@ -279,46 +265,39 @@ function Build:generate_script()
     for _, name in ipairs(names) do
         local result = results[name]
         if result then
-            if not result.install_success then
-                self:add_error(result.install_err)
-            end
             if result.path_is_dir then
                 table.insert(script.rtp_prefix, result.spec.path)
                 if result.has_after_dir then
                     table.insert(script.rtp_suffix, result.spec.path .. "/after")
                 end
             elseif result.spec.source.kind == "path" then
-                self:add_error(
-                    ("plugin %q path is not a directory: %s"):format(name, result.spec.path)
-                )
+                self:err("plugin %q path is not a directory: %s", name, result.spec.path)
             end
         end
     end
 
     local output_dir = vim.fs.dirname(self._output_path)
     if not output_dir then
-        self:add_error(("failed to determine output directory: %s"):format(self._output_path))
+        self:err("failed to determine output directory: %s", self._output_path)
         return nil
     end
 
     local success, create_dir_err = fs.create_dir_all(output_dir)
     if not success then
-        self:add_error(
-            ("failed to create output directory %s: %s"):format(
-                output_dir,
-                create_dir_err or "unknown error"
-            )
+        self:err(
+            "failed to create output directory %s: %s",
+            output_dir,
+            create_dir_err or "unknown error"
         )
         return nil
     end
 
     local wrote, write_err = fs.write_file(self._output_path, script:tostring())
     if not wrote then
-        self:add_error(
-            ("failed to write generated script %s: %s"):format(
-                self._output_path,
-                write_err or "unknown error"
-            )
+        self:err(
+            "failed to write generated script %s: %s",
+            self._output_path,
+            write_err or "unknown error"
         )
         return nil
     end

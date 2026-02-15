@@ -43,9 +43,7 @@ function ozone.run()
         if script then
             local chunk, load_err = loadfile(script)
             if not chunk then
-                build_instance:add_error(
-                    ("failed to load generated script %q: %s"):format(script, load_err)
-                )
+                build_instance:err("failed to load generated script %q: %s", script, load_err)
             else
                 chunk()
             end
