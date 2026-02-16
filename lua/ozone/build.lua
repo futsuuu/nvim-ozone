@@ -27,6 +27,7 @@ local git = require("ozone.git")
 ---@class ozone.Build
 ---@field private _plugins table<string, ozone.Build.ResolvedPluginSpec>
 ---@field private _errors string[]
+---@field private _plugin_name_counts table<string, integer>
 ---@field private _install_root string
 ---@field private _output_path string
 local Build = {}
@@ -40,13 +41,9 @@ Build.__index = Build
 ---@field has_after_dir boolean
 
 ---@param name string
----@return string
-local function sanitize_plugin_name(name)
-    local sanitized_name = name:gsub("[^%w_.-]", "-")
-    if sanitized_name == "" then
-        return "plugin"
-    end
-    return sanitized_name
+---@return boolean
+local function is_valid_plugin_name(name)
+    return name:match("^[%w_.-]+$") ~= nil
 end
 
 ---@return self
@@ -54,6 +51,7 @@ function Build.new()
     return setmetatable({
         _plugins = {},
         _errors = {},
+        _plugin_name_counts = {},
         _install_root = vim.fn.stdpath("data") .. "/ozone/_",
         _output_path = vim.fn.stdpath("data") .. "/ozone/main",
     }, Build)
@@ -78,7 +76,7 @@ end
 ---@param name string
 ---@return string
 function Build:_default_plugin_path(name)
-    return vim.fs.joinpath(self._install_root, sanitize_plugin_name(name))
+    return vim.fs.joinpath(self._install_root, name)
 end
 
 ---@param name string
@@ -219,6 +217,31 @@ end
 ---@param spec ozone.Build.PluginSpec
 ---@return nil
 function Build:add_plugin(name, spec)
+    if type(name) ~= "string" then
+        self:err("plugin name must be a string")
+        return
+    end
+
+    if not is_valid_plugin_name(name) then
+        self:err(
+            "plugin %q: name contains invalid characters (allowed: letters, digits, '_', '.', '-')",
+            name
+        )
+        return
+    end
+
+    local name_count = (self._plugin_name_counts[name] or 0) + 1
+    self._plugin_name_counts[name] = name_count
+
+    if name_count > 1 then
+        if name_count == 2 then
+            self:err("plugin %q: duplicate name (definition #1)", name)
+        end
+        self:err("plugin %q: duplicate name (definition #%d)", name, name_count)
+        self._plugins[name] = nil
+        return
+    end
+
     local resolved_spec, err = self:_normalize_plugin_spec(name, spec)
     if not resolved_spec then
         self:err("%s", err or "unknown error")
