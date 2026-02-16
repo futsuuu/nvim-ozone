@@ -40,10 +40,10 @@ Build.__index = Build
 ---@field path_is_dir boolean
 ---@field has_after_dir boolean
 
----@param name string
+---@param name any
 ---@return boolean
 local function is_valid_plugin_name(name)
-    return name:match("^[%w_.-]+$") ~= nil
+    return type(name) == "string" and name:match("^[%w_.-]+$") ~= nil
 end
 
 ---@return self
@@ -82,45 +82,44 @@ end
 ---@param name string
 ---@param spec ozone.Build.PluginSpec
 ---@return ozone.Build.ResolvedPluginSpec? resolved_spec
----@return string? err
-function Build:_normalize_plugin_spec(name, spec)
-    if type(spec) ~= "table" then
-        return nil, ("plugin %q spec must be a table"):format(name)
-    end
+function Build:_validate_plugin_spec(name, spec)
+    vim.validate("name", name, is_valid_plugin_name, false, "plugin name (letters, digits, '_', '.', '-')")
+    vim.validate("spec", spec, "table")
 
     local path = spec.path
-    if path ~= nil then
-        if type(path) ~= "string" then
-            return nil, ("plugin %q: `path` must be a string"):format(name)
-        end
-        if path == "" then
-            return nil, ("plugin %q: `path` must not be empty"):format(name)
-        end
-        path = vim.fs.normalize(path)
-    end
-
     local url = spec.url
-    if url ~= nil then
-        if type(url) ~= "string" then
-            return nil, ("plugin %q: `url` must be a string"):format(name)
-        end
-        if url == "" then
-            return nil, ("plugin %q: `url` must not be empty"):format(name)
-        end
-    end
-
     local version = spec.version
-    if version ~= nil then
-        if type(version) ~= "string" then
-            return nil, ("plugin %q: `version` must be a string"):format(name)
+
+    vim.validate("path", path, function(value)
+        return type(value) == "string" and value ~= ""
+    end, true, "non-empty string")
+    vim.validate("url", url, function(value)
+        return type(value) == "string" and value ~= ""
+    end, true, "non-empty string")
+    vim.validate("version", version, function(value)
+        return type(value) == "string" and value ~= ""
+    end, true, "non-empty string")
+    vim.validate("version_source", { version = version, url = url }, function(value)
+        return value.version == nil or value.url ~= nil
+    end, false, "`version` requires `url`")
+    vim.validate("source", { path = path, url = url }, function(value)
+        return value.path ~= nil or value.url ~= nil
+    end, false, "`path` or `url` must be set")
+
+    local name_count = (self._plugin_name_counts[name] or 0) + 1
+    self._plugin_name_counts[name] = name_count
+
+    if name_count > 1 then
+        if name_count == 2 then
+            self:err("plugin %q: duplicate name (definition #1)", name)
         end
-        if version == "" then
-            return nil, ("plugin %q: `version` must not be empty"):format(name)
-        end
+        self:err("plugin %q: duplicate name (definition #%d)", name, name_count)
+        self._plugins[name] = nil
+        return nil
     end
 
-    if version and not url then
-        return nil, ("plugin %q: `version` requires `url`"):format(name)
+    if path ~= nil then
+        path = vim.fs.normalize(path)
     end
 
     if url then
@@ -134,17 +133,12 @@ function Build:_normalize_plugin_spec(name, spec)
         }
     end
 
-    if path then
-        return {
-            path = path,
-            source = {
-                kind = "path",
-            },
+    return {
+        path = path,
+        source = {
+            kind = "path",
         },
-            nil
-    end
-
-    return nil, ("plugin %q must define `path` or `url`"):format(name)
+    }
 end
 
 ---@param name string
@@ -217,36 +211,11 @@ end
 ---@param spec ozone.Build.PluginSpec
 ---@return nil
 function Build:add_plugin(name, spec)
-    if type(name) ~= "string" then
-        self:err("plugin name must be a string")
-        return
-    end
-
-    if not is_valid_plugin_name(name) then
-        self:err(
-            "plugin %q: name contains invalid characters (allowed: letters, digits, '_', '.', '-')",
-            name
-        )
-        return
-    end
-
-    local name_count = (self._plugin_name_counts[name] or 0) + 1
-    self._plugin_name_counts[name] = name_count
-
-    if name_count > 1 then
-        if name_count == 2 then
-            self:err("plugin %q: duplicate name (definition #1)", name)
-        end
-        self:err("plugin %q: duplicate name (definition #%d)", name, name_count)
-        self._plugins[name] = nil
-        return
-    end
-
-    local resolved_spec, err = self:_normalize_plugin_spec(name, spec)
+    local resolved_spec = self:_validate_plugin_spec(name, spec)
     if not resolved_spec then
-        self:err("%s", err or "unknown error")
         return
     end
+
     self._plugins[name] = resolved_spec
 end
 
