@@ -177,7 +177,7 @@ function Build:_install_git_plugin(name, spec)
     local parent_dir = vim.fs.dirname(spec.path)
     if parent_dir then
         local success, create_dir_err = fs.create_dir_all(parent_dir)
-        if not success and not fs.is_dir(parent_dir) then
+        if not success then
             error(
                 ("plugin %q failed to create parent directory %s: %s"):format(
                     name,
