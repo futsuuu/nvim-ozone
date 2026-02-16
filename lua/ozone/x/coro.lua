@@ -63,9 +63,14 @@ local function handle_resume_result(co, resume_success, ...)
     end
 end
 
+--- Runs `fn` asynchronously in a managed coroutine and reports the result to
+--- `callback`.
+---
+--- The variadic arguments can be used to avoid function creation for a
+--- performance-critical area.
 ---@param callback fun(success: boolean, ...: any)
----@param fn async fun(...): ...: any
----@param ... any
+---@param fn async fun(...: any): ...: any
+---@param ... any additional arguments for `fn`
 ---@return thread
 function coro.pspawn(callback, fn, ...)
     local co = coroutine.create(fn)
@@ -96,10 +101,15 @@ local function handle_resume_result_of_xpcall(co, resume_success, second, ...)
     end
 end
 
+--- Runs `fn` asynchronously with `xpcall` in a managed coroutine and reports
+--- the result to `callback`.
+---
+--- The variadic arguments can be used to avoid function creation for a
+--- performance-critical area.
 ---@param callback fun(success: boolean, ...: any)
----@param fn async fun(...): ...: any
+---@param fn async fun(...: any): ...: any
 ---@param message_handler fun(message: any): any
----@param ... any
+---@param ... any additional arguments for `fn`
 ---@return thread
 function coro.xpspawn(callback, fn, message_handler, ...)
     local co = coroutine.create(xpcall)
@@ -128,8 +138,12 @@ do
         end
     end
 
-    ---@param fn async fun(...): ...: any
-    ---@param ... any
+    --- Runs `fn` asynchronously in a managed coroutine and raises on failure.
+    ---
+    --- The variadic arguments can be used to avoid function creation for a
+    --- performance-critical area.
+    ---@param fn async fun(...: any): ...: any
+    ---@param ... any additional arguments for `fn`
     ---@return thread
     function coro.spawn(fn, ...)
         return coro.xpspawn(default_callback, fn, coro.traceback, ...)
@@ -150,8 +164,10 @@ do
     end
 
     --- Suspends the current coroutine until `executor` calls `resume(...)`.
+    --- `resume` always resumes the coroutine asynchronously.
     ---
-    --- NOTE: `resume` always resumes the coroutine asynchronously.
+    --- The variadic arguments can be used to avoid function creation for a
+    --- performance-critical area.
     ---@param executor fun(resume: fun(...: any), ...: any)
     ---@param ... any additional arguments for `executor`
     ---@return any ... arguments passed to `resume`
@@ -168,8 +184,9 @@ do
     end
 end
 
+--- Runs `fn` synchronously and blocks with `vim.wait()` until it completes.
 ---@param fn async fun(...: any): ...: any
----@param ... any
+---@param ... any additional arguments for `fn`
 ---@return any ...
 function coro.wait(fn, ...)
     local result = nil ---@type table?
