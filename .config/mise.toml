@@ -18,3 +18,13 @@ run = "nvim -l .config/gen_luarc.lua .luarc.json"
 
 [tasks.test]
 run = "nvim -l test/runner.lua"
+
+[tasks.example]
+run = "nvim -u test/example/init.lua -i NONE"
+
+[tasks.example.env]
+NVIM_APPNAME = "default"
+XDG_CONFIG_HOME = "{{ config_root }}/test/example"
+XDG_CACHE_HOME = "{{ config_root }}/.tmp/.cache/example"
+XDG_DATA_HOME = "{{ config_root }}/.tmp/.local/share/example"
+XDG_STATE_HOME = "{{ config_root }}/.tmp/.local/state/example"
