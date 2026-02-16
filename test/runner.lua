@@ -6,9 +6,9 @@ local TEST_DIR = vim.fs.dirname(FILE)
 local BASE_ENV = {
     NVIM_APPNAME = "default",
     XDG_CONFIG_HOME = vim.fs.joinpath(TEST_DIR, "e2e"),
-    XDG_CACHE_HOME = vim.fs.abspath(".tmp/.cache"),
-    XDG_DATA_HOME = vim.fs.abspath(".tmp/.local/share"),
-    XDG_STATE_HOME = vim.fs.abspath(".tmp/.local/state"),
+    XDG_CACHE_HOME = vim.fs.abspath(".tmp/.cache/e2e"),
+    XDG_DATA_HOME = vim.fs.abspath(".tmp/.local/share/e2e"),
+    XDG_STATE_HOME = vim.fs.abspath(".tmp/.local/state/e2e"),
 }
 
 local coro = require("ozone.x.coro")

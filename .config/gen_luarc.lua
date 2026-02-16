@@ -13,6 +13,7 @@ local config = {
         },
         ignoreDir = {
             "./test/e2e",
+            "./test/example",
         },
     },
     hint = {
