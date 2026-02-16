@@ -26,7 +26,7 @@ function ozone.add(specs)
     for name, spec in pairs(specs) do
         local ok, add_err = pcall(build_instance.add_plugin, build_instance, name, spec)
         if not ok then
-            build_instance:err("plugin %q: %s", tostring(name), tostring(add_err))
+            build_instance:err("plugin %q: %s", name, add_err)
         end
     end
 end

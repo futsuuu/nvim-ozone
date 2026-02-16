@@ -83,7 +83,13 @@ end
 ---@param spec ozone.Build.PluginSpec
 ---@return ozone.Build.ResolvedPluginSpec? resolved_spec
 function Build:_validate_plugin_spec(name, spec)
-    vim.validate("name", name, is_valid_plugin_name, false, "plugin name (letters, digits, '_', '.', '-')")
+    vim.validate(
+        "name",
+        name,
+        is_valid_plugin_name,
+        false,
+        "plugin name (letters, digits, '_', '.', '-')"
+    )
     vim.validate("spec", spec, "table")
 
     local path = spec.path
@@ -156,7 +162,7 @@ end
 function Build:_install_git_plugin(name, spec)
     local source = spec.source
     if source.kind ~= "git" then
-        error(("plugin %q has unsupported source kind: %s"):format(name, tostring(source.kind)))
+        error(("plugin %q has unsupported source kind: %s"):format(name, source.kind))
     end
     if fs.exists(spec.path) then
         if fs.is_dir(spec.path) then
@@ -201,9 +207,7 @@ function Build:_install_plugin(name, spec)
     end
 
     if spec.source.kind ~= "path" then
-        error(
-            ("plugin %q has unsupported source kind: %s"):format(name, tostring(spec.source.kind))
-        )
+        error(("plugin %q has unsupported source kind: %s"):format(name, spec.source.kind))
     end
 end
 
