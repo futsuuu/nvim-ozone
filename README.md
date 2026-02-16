@@ -39,11 +39,26 @@ return require("ozone").run()
 local ozone = require("ozone")
 
 ozone.add({
-    name = {
+    local_plugin = {
         path = "path/to/local/plugin",
-    }
+    },
+    remote_plugin = {
+        url = "https://github.com/author/repo",
+    },
+    remote_plugin_versioned = {
+        url = "https://github.com/author/repo",
+        version = "v1.2.3",
+    },
+    remote_plugin_with_path = {
+        url = "https://github.com/author/repo",
+        path = vim.fn.stdpath("data") .. "/ozone/custom/repo",
+    },
 })
 ```
+
+`url` currently supports `git clone` only.
+`version` is optional and is resolved with `git checkout`, so branch names, tags, and revisions can be used.
+Invalid plugin specs or install failures are collected and reported together after the build step.
 
 ## Build Scripts
 
