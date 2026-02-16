@@ -26,6 +26,23 @@ local function read_outputs(result)
     return stdout, stderr
 end
 
+---@param prefix string
+---@param result vim.SystemCompleted
+---@return string
+local function format_system_failure(prefix, result)
+    local stdout, stderr = read_outputs(result)
+    local message = ("%s (code=%d, signal=%d)"):format(prefix, result.code, result.signal)
+
+    if stdout ~= "" then
+        message = message .. "\n---- stdout ----\n" .. stdout
+    end
+    if stderr ~= "" then
+        message = message .. "\n---- stderr ----\n" .. stderr
+    end
+
+    return message
+end
+
 ---@param result vim.SystemCompleted
 ---@return boolean
 local function is_success(result)
@@ -50,16 +67,8 @@ function M.checkout(path, version)
     end
 
     if not is_success(result) then
-        local stdout, stderr = read_outputs(result)
         return nil,
-            ("checkout failed: %s at %s (code=%d, signal=%d)%s%s"):format(
-                version,
-                path,
-                result.code,
-                result.signal,
-                stdout ~= "" and ("\n---- stdout ----\n" .. stdout) or "",
-                stderr ~= "" and ("\n---- stderr ----\n" .. stderr) or ""
-            )
+            format_system_failure(("checkout failed: %s at %s"):format(version, path), result)
     end
 
     return true, nil
@@ -82,16 +91,7 @@ function M.clone(url, path)
     end
 
     if not is_success(result) then
-        local stdout, stderr = read_outputs(result)
-        return nil,
-            ("clone failed: %s -> %s (code=%d, signal=%d)%s%s"):format(
-                url,
-                path,
-                result.code,
-                result.signal,
-                stdout ~= "" and ("\n---- stdout ----\n" .. stdout) or "",
-                stderr ~= "" and ("\n---- stderr ----\n" .. stderr) or ""
-            )
+        return nil, format_system_failure(("clone failed: %s -> %s"):format(url, path), result)
     end
 
     return true, nil
