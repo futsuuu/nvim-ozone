@@ -69,7 +69,7 @@ end
 --- The variadic arguments can be used to avoid function creation for a
 --- performance-critical area.
 ---@param callback fun(success: boolean, ...: any)
----@param fn async fun(...: any): ...: any
+---@param fn async fun(...): ...: any
 ---@param ... any additional arguments for `fn`
 ---@return thread
 function coro.pspawn(callback, fn, ...)
@@ -107,7 +107,7 @@ end
 --- The variadic arguments can be used to avoid function creation for a
 --- performance-critical area.
 ---@param callback fun(success: boolean, ...: any)
----@param fn async fun(...: any): ...: any
+---@param fn async fun(...): ...: any
 ---@param message_handler fun(message: any): any
 ---@param ... any additional arguments for `fn`
 ---@return thread
@@ -142,7 +142,7 @@ do
     ---
     --- The variadic arguments can be used to avoid function creation for a
     --- performance-critical area.
-    ---@param fn async fun(...: any): ...: any
+    ---@param fn async fun(...): ...: any
     ---@param ... any additional arguments for `fn`
     ---@return thread
     function coro.spawn(fn, ...)
@@ -164,6 +164,7 @@ do
     end
 
     --- Suspends the current coroutine until `executor` calls `resume(...)`.
+    ---
     --- `resume` always resumes the coroutine asynchronously.
     ---
     --- The variadic arguments can be used to avoid function creation for a
