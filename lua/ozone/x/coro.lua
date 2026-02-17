@@ -63,6 +63,10 @@ local function handle_resume_result(co, resume_success, ...)
     end
 end
 
+--- Runs `fn` in a managed coroutine and reports the result to `callback`.
+---
+--- NOTE: The variadic arguments exist so callers can pass values directly without
+--- creating a per-call closure in hot loops.
 ---@param callback fun(success: boolean, ...: any)
 ---@param fn async fun(...): ...: any
 ---@param ... any
@@ -96,6 +100,11 @@ local function handle_resume_result_of_xpcall(co, resume_success, second, ...)
     end
 end
 
+--- Runs `fn` with `xpcall` in a managed coroutine and reports the result to
+--- `callback`.
+---
+--- NOTE: The variadic arguments exist so callers can pass values directly without
+--- creating a per-call closure in hot loops.
 ---@param callback fun(success: boolean, ...: any)
 ---@param fn async fun(...): ...: any
 ---@param message_handler fun(message: any): any
@@ -128,6 +137,10 @@ do
         end
     end
 
+    --- Runs `fn` in a managed coroutine and raises on failure.
+    ---
+    --- NOTE: The variadic arguments exist so callers can pass values directly without
+    --- creating a per-call closure in hot loops.
     ---@param fn async fun(...): ...: any
     ---@param ... any
     ---@return thread
@@ -152,6 +165,8 @@ do
     --- Suspends the current coroutine until `executor` calls `resume(...)`.
     ---
     --- NOTE: `resume` always resumes the coroutine asynchronously.
+    --- NOTE: The variadic arguments exist so callers can pass values directly without
+    --- creating a per-call closure in hot loops.
     ---@param executor fun(resume: fun(...: any), ...: any)
     ---@param ... any additional arguments for `executor`
     ---@return any ... arguments passed to `resume`
@@ -168,6 +183,7 @@ do
     end
 end
 
+--- Runs `fn` and blocks with `vim.wait()` until it completes.
 ---@param fn async fun(...: any): ...: any
 ---@param ... any
 ---@return any ...
