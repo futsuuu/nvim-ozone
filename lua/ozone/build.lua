@@ -226,14 +226,12 @@ end
 ---@return string? path
 function Build:generate_script()
     local script = Script.new()
-    local queue = Queue.new()
-    local pending = 0 ---@type integer
+    local queue = Queue.Counting.new()
     local names = {} ---@type string[]
 
     for name, spec in pairs(self._plugins) do
         table.insert(names, name)
-        pending = pending + 1
-        coro.pspawn(queue.put_fn, function(plugin_name, plugin_spec)
+        coro.pspawn(queue:callback(), function(plugin_name, plugin_spec)
             self:_install_plugin(plugin_name, plugin_spec)
             local path_is_dir = fs.is_dir(plugin_spec.path)
             local has_after_dir = path_is_dir and fs.is_dir(plugin_spec.path .. "/after") or false
@@ -248,7 +246,7 @@ function Build:generate_script()
 
     local results = {} ---@type table<string, ozone.Build.PluginBuildResult>
 
-    for _ = 1, pending do
+    while not queue:is_completed() do
         local co_success, result_or_err = queue:get()
         if not co_success then
             self:err("%s", result_or_err or "unknown error")
