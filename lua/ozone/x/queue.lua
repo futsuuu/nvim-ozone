@@ -18,15 +18,23 @@ Queue.__index = Queue
 
 ---@return self
 function Queue.new()
-    local self = setmetatable({
+    return Queue:_new()
+end
+
+---@protected
+---@generic T
+---@param self T
+---@return T
+function Queue:_new()
+    local instance = setmetatable({
         _first = 1,
         _last = 0,
         _chunks = buffer.new(),
-    }, Queue)
-    function self.put_fn(...)
-        return self:put(...)
+    }, self)
+    function instance.put_fn(...)
+        return instance:put(...)
     end
-    return self
+    return instance
 end
 
 --- Returns the number of chunks in the queue.
@@ -95,6 +103,56 @@ do
         self._first = chunk_last + 1
         return take_range(self, chunk_first, chunk_last)
     end
+end
+
+---@class ozone.x.Queue.Counting: ozone.x.Queue
+---@field private _pendings integer
+---@field private _availables integer
+local Counting = setmetatable({}, Queue)
+Queue.Counting = Counting
+
+---@private
+Counting.__index = Counting
+
+function Counting.new()
+    local self = Counting:_new()
+    self._pendings = 0
+    self._availables = 0
+    return self
+end
+
+---@return boolean
+function Counting:is_completed()
+    return self._pendings == 0 and self._availables == 0
+end
+
+---@return integer
+function Counting:pending_count()
+    return self._pendings
+end
+
+---@return integer
+function Counting:available_count()
+    return self._availables
+end
+
+---@return fun(...: any): nil
+function Counting:callback()
+    self._pendings = self._pendings + 1
+    return self.put_fn
+end
+
+---@private
+function Counting:put(...)
+    self._pendings = self._pendings - 1
+    self._availables = self._availables + 1
+    return Queue.put(self, ...)
+end
+
+---@return any ...
+function Counting:get()
+    self._availables = self._availables - 1
+    return Queue.get(self)
 end
 
 return Queue

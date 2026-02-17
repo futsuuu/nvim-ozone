@@ -96,22 +96,20 @@ function M.remove_dir_all(path)
     if not entries then
         return nil, read_dir_err
     end
-    local queue = Queue.new()
-    local pending = 0
+    local queue = Queue.Counting.new()
     -- spawn coroutines for each entry in the directory
     for i, entry in entries:iter() do
         if not i then
             return nil, entry -- entry is the error message in this case
         end
-        pending = pending + 1
         local entry_path = vim.fs.joinpath(path, entry.name)
         if entry.type == "directory" then
-            coro.pspawn(queue.put_fn, M.remove_dir_all, entry_path)
+            coro.pspawn(queue:callback(), M.remove_dir_all, entry_path)
         else
-            coro.pspawn(queue.put_fn, M.remove_file, entry_path)
+            coro.pspawn(queue:callback(), M.remove_file, entry_path)
         end
     end
-    for _ = 1, pending do
+    while not queue:is_completed() do
         local _, success, err = assert(queue:get())
         if not success then
             return nil, err
