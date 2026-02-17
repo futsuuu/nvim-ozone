@@ -82,7 +82,7 @@
 - Commit message format:
     - `<type>[optional scope]: <description>`
     - Optional body and footer can be added when needed.
-- A header length of 50 characters or fewer is recommended, with an absolute maximum of 72 characters.
+- A header length of 50 characters or fewer is recommended, and 72 characters is a practical upper limit.
 - Wrap lines in the commit body and footer at 72 characters.
 - Common `type` values:
     - `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `ci`, `chore`
