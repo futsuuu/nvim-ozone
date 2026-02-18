@@ -19,11 +19,15 @@ local config = {
     hint = {
         awaitPropagate = true,
     },
+    type = {
+        checkTableShape = true,
+    },
     diagnostics = {
         groupFileStatus = {
             await = "Any",
             strict = "Any",
             strong = "Any",
+            ["type-check"] = "Any",
         },
         unusedLocalExclude = { "_*" },
     },
