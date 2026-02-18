@@ -9,6 +9,7 @@ assert(vim.g.error_handling_ok_count == 1)
 assert(vim.g.error_handling_duplicate_count == nil)
 assert(vim.g.error_handling_invalid_name_count == nil)
 
+---@type ozone?
 local ozone = package.loaded["ozone"]
 if not ozone then
     return

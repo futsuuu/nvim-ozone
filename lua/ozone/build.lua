@@ -140,7 +140,7 @@ function Build:_validate_plugin_spec(name, spec)
     end
 
     return {
-        path = path,
+        path = assert(path),
         source = {
             kind = "path",
         },

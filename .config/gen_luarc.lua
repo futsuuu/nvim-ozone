@@ -3,27 +3,31 @@ local config = {
     runtime = {
         version = _G.jit and "LuaJIT" or _VERSION,
         pathStrict = true,
-        path = { "?.lua", "?/init.lua" },
+        path = {
+            "${workspaceFolder}/?.lua",
+            "lua/?.lua",
+            "lua/?/init.lua",
+        },
     },
     workspace = {
         checkThirdParty = false,
         library = {
-            "./lua",
-            vim.fs.joinpath(vim.env.VIMRUNTIME, "lua"),
+            vim.env.VIMRUNTIME,
         },
-        ignoreDir = {
-            "./test/e2e",
-            "./test/example",
-        },
+        ignoreDir = {},
     },
     hint = {
         awaitPropagate = true,
+    },
+    type = {
+        checkTableShape = true,
     },
     diagnostics = {
         groupFileStatus = {
             await = "Any",
             strict = "Any",
             strong = "Any",
+            ["type-check"] = "Any",
         },
         unusedLocalExclude = { "_*" },
     },

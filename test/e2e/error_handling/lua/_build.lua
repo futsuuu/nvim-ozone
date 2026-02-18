@@ -21,6 +21,7 @@ vim.g.error_handling_invalid_name_count = (vim.g.error_handling_invalid_name_cou
 })
 
 ozone.add({
+    ---@diagnostic disable-next-line: assign-type-mismatch
     invalid_spec = "not-a-table",
     missing_source = {},
     version_without_url = {
