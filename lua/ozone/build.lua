@@ -5,11 +5,6 @@ local fs = require("ozone.x.fs")
 local Script = require("ozone.script")
 local git = require("ozone.git")
 
----@class ozone.Build.PluginSpec
----@field path? string Plugin directory path
----@field url? string Git repository URL
----@field version? string Git ref (branch, tag, or revision)
-
 ---@class ozone.Build
 ---@field private _errors string[]
 ---@field private _output_path string

@@ -48,7 +48,7 @@ function Config:_default_plugin_path(name)
 end
 
 ---@param name string
----@param spec ozone.Build.PluginSpec
+---@param spec ozone.PluginSpec
 ---@return ozone.Config.PluginSpec
 function Config:add_plugin(name, spec)
     if type(name) ~= "string" then

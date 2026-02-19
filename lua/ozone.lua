@@ -9,20 +9,15 @@ local config = Config.new()
 ---@class ozone
 local ozone = {}
 
----@return nil
-local function report_build_errors()
-    local errors = build_instance:get_errors()
-    if #errors == 0 then
-        return
-    end
+---@class ozone.PluginSpec
+--- Plugin directory path
+---@field path? string
+--- Git repository URL
+---@field url? string
+--- Git ref (branch, tag, or revision)
+---@field version? string
 
-    vim.api.nvim_echo({ { "[ozone] build errors", "WarningMsg" } }, true, {})
-    for _, message in ipairs(errors) do
-        vim.api.nvim_echo({ { message, "WarningMsg" } }, true, {})
-    end
-end
-
----@param specs table<string, ozone.Build.PluginSpec>
+---@param specs table<string, ozone.PluginSpec>
 ---@return nil
 function ozone.add(specs)
     for name, spec in pairs(specs) do
@@ -36,6 +31,19 @@ end
 ---@return string[] errors
 function ozone.errors()
     return build_instance:get_errors()
+end
+
+---@return nil
+local function report_build_errors()
+    local errors = build_instance:get_errors()
+    if #errors == 0 then
+        return
+    end
+
+    vim.api.nvim_echo({ { "[ozone] build errors", "WarningMsg" } }, true, {})
+    for _, message in ipairs(errors) do
+        vim.api.nvim_echo({ { message, "WarningMsg" } }, true, {})
+    end
 end
 
 ---@return nil
