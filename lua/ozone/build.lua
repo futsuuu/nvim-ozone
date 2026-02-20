@@ -42,16 +42,6 @@ function Build:get_errors()
     return errors
 end
 
----@param name string
----@param path string
----@param version string
-function Build:_checkout_git_plugin_version(name, path, version)
-    local success, checkout_err = git.checkout(path, version)
-    if not success then
-        error(("plugin %q %s"):format(name, checkout_err or "checkout failed"))
-    end
-end
-
 ---@param spec ozone.Config.PluginSpec
 local function install_git_plugin(spec)
     local source = spec.source
