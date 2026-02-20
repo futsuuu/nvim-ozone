@@ -22,6 +22,7 @@ runner.add("add_plugin() resolves local path specs", function()
         path = raw_path,
     })
 
+    assert(resolved.name == "local_plugin")
     assert(resolved.path == vim.fs.normalize(raw_path))
     assert(resolved.source.kind == "path")
 end)
@@ -34,6 +35,7 @@ runner.add("add_plugin() resolves git specs with default install path", function
         version = "v1.2.3",
     })
 
+    assert(resolved.name == "remote_plugin")
     assert(resolved.path == vim.fs.joinpath(vim.fn.stdpath("data"), "ozone", "_", "remote_plugin"))
     assert(resolved.source.kind == "git")
     assert(resolved.source.url == "https://github.com/author/repo")

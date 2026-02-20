@@ -3,12 +3,12 @@
 ---@field private _plugin_name_counts table<string, integer>
 ---@field private _install_root string
 ---@field private _dep_names_by_spec table<ozone.Config.PluginSpec, string[]>
----@field private _plugin_name_by_spec table<ozone.Config.PluginSpec, string>
 local Config = {}
 ---@private
 Config.__index = Config
 
 ---@class ozone.Config.PluginSpec
+---@field name string
 ---@field path string
 ---@field source ozone.Config.PluginSource
 ---@field deps self[]
@@ -30,7 +30,6 @@ function Config.new()
         _plugin_name_counts = {},
         _install_root = vim.fs.joinpath(vim.fn.stdpath("data"), "ozone", "_"),
         _dep_names_by_spec = {},
-        _plugin_name_by_spec = {},
     }, Config)
 end
 
@@ -72,7 +71,7 @@ function Config:_resolve_plugin_deps()
             if dep_spec == nil then
                 table.insert(
                     warnings,
-                    ("plugin %q depends on undefined plugin %q"):format(name, dep_name)
+                    ("plugin %q depends on undefined plugin %q"):format(spec.name, dep_name)
                 )
             elseif not seen_dep_specs[dep_spec] then
                 seen_dep_specs[dep_spec] = true
@@ -80,9 +79,7 @@ function Config:_resolve_plugin_deps()
             end
         end
         table.sort(dep_specs, function(left, right)
-            local left_name = assert(self._plugin_name_by_spec[left])
-            local right_name = assert(self._plugin_name_by_spec[right])
-            return left_name < right_name
+            return left.name < right.name
         end)
         spec.deps = dep_specs
     end
@@ -114,19 +111,17 @@ function Config:get_plugin_names_in_load_order()
         -- cycle detection without aborting the build.
         spec_states[spec] = "visiting"
 
-        local name = assert(self._plugin_name_by_spec[spec])
-        local deps = spec.deps
-        for _, dep_spec in ipairs(deps) do
-            local dep_name = assert(self._plugin_name_by_spec[dep_spec])
+        for _, dep_spec in ipairs(spec.deps) do
+            local dep_name = dep_spec.name
             local dep_state = spec_states[dep_spec]
             if dep_state == "visiting" then
-                local edge_key = name .. "->" .. dep_name
+                local edge_key = spec.name .. "->" .. dep_name
                 if not warned_edges[edge_key] then
                     warned_edges[edge_key] = true
                     table.insert(
                         warnings,
                         ("plugin %q has circular dependency on %q; continuing with best-effort order"):format(
-                            name,
+                            spec.name,
                             dep_name
                         )
                     )
@@ -137,7 +132,7 @@ function Config:get_plugin_names_in_load_order()
         end
 
         spec_states[spec] = "visited"
-        table.insert(ordered_names, name)
+        table.insert(ordered_names, spec.name)
     end
 
     for _, name in ipairs(self:_sorted_plugin_names()) do
@@ -259,7 +254,6 @@ function Config:add_plugin(name, spec)
         local existing_spec = self._plugins[name]
         if existing_spec ~= nil then
             self._dep_names_by_spec[existing_spec] = nil
-            self._plugin_name_by_spec[existing_spec] = nil
         end
         self._plugins[name] = nil
         error(("plugin name %q is duplicated (definition #%d)"):format(name, name_count))
@@ -268,6 +262,7 @@ function Config:add_plugin(name, spec)
     local resolved_spec = nil ---@type ozone.Config.PluginSpec?
     if spec.url then
         resolved_spec = {
+            name = name,
             path = spec.path or self:_default_plugin_path(name),
             source = {
                 kind = "git",
@@ -279,6 +274,7 @@ function Config:add_plugin(name, spec)
     else
         local plugin_path = assert(spec.path)
         resolved_spec = {
+            name = name,
             path = plugin_path,
             source = {
                 kind = "path",
@@ -289,7 +285,6 @@ function Config:add_plugin(name, spec)
 
     self._plugins[name] = resolved_spec
     self._dep_names_by_spec[resolved_spec] = dep_names
-    self._plugin_name_by_spec[resolved_spec] = name
     return resolved_spec
 end
 

@@ -13,7 +13,6 @@ local Build = {}
 Build.__index = Build
 
 ---@class ozone.Build.PluginBuildResult
----@field name string
 ---@field spec ozone.Config.PluginSpec
 ---@field path_is_dir boolean
 ---@field has_after_dir boolean
@@ -94,20 +93,19 @@ function Build:generate_script(config)
     local queue = Queue.Counting.new()
     local plugins = config:get_plugins()
 
-    for name, spec in pairs(plugins) do
+    for _, spec in pairs(plugins) do
         local callback = queue:callback()
         coro.pspawn(function(success, ...)
             if success then
                 callback(true, ...)
             else
-                callback(false, ("plugin %q %s"):format(name, ...))
+                callback(false, ("plugin %q %s"):format(spec.name, ...))
             end
         end, function()
             self:_install_plugin(spec)
             local path_is_dir = fs.is_dir(spec.path)
             local has_after_dir = path_is_dir and fs.is_dir(spec.path .. "/after") or false
             return {
-                name = name,
                 spec = spec,
                 path_is_dir = path_is_dir,
                 has_after_dir = has_after_dir,
@@ -123,7 +121,7 @@ function Build:generate_script(config)
             self:err("%s", result_or_err or "unknown error")
         else
             local result = result_or_err ---@type ozone.Build.PluginBuildResult
-            results[result.name] = result
+            results[result.spec.name] = result
         end
     end
 
