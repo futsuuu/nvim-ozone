@@ -69,10 +69,7 @@ function Config:_resolve_plugin_deps()
         for _, dep_name in ipairs(self._dep_names_by_spec[spec] or {}) do
             local dep_spec = self._plugins[dep_name]
             if dep_spec == nil then
-                table.insert(
-                    warnings,
-                    ("plugin %q depends on undefined plugin %q"):format(spec.name, dep_name)
-                )
+                table.insert(warnings, ("plugin %q depends on undefined plugin %q"):format(spec.name, dep_name))
             elseif not seen_dep_specs[dep_spec] then
                 seen_dep_specs[dep_spec] = true
                 table.insert(dep_specs, dep_spec)
@@ -159,11 +156,7 @@ function Config:add_plugin(name, spec)
     if type(name) ~= "string" then
         error(("invalid type of plugin name (string expected, got %s)"):format(type(name)))
     elseif name:match("^[%w_.-]+$") == nil then
-        error(
-            ('invalid plugin name (only letters, digits, "_", ".", and "-" are allowed, got %q)'):format(
-                name
-            )
-        )
+        error(('invalid plugin name (only letters, digits, "_", ".", and "-" are allowed, got %q)'):format(name))
     end
     if type(spec) ~= "table" then
         error(("invalid type of 'specs.%s' (table expected, got %s)"):format(name, type(spec)))
@@ -172,24 +165,13 @@ function Config:add_plugin(name, spec)
     local dep_names = {} ---@type string[]
     if spec.deps ~= nil then
         if type(spec.deps) ~= "table" then
-            error(
-                ("invalid type of '%s.deps' (string[] expected, got %s)"):format(
-                    name,
-                    type(spec.deps)
-                )
-            )
+            error(("invalid type of '%s.deps' (string[] expected, got %s)"):format(name, type(spec.deps)))
         elseif not vim.islist(spec.deps) then
             error(("invalid '%s.deps' (string[] expected)"):format(name))
         end
         for i, dep_name in ipairs(spec.deps) do
             if type(dep_name) ~= "string" then
-                error(
-                    ("invalid type of '%s.deps[%d]' (string expected, got %s)"):format(
-                        name,
-                        i,
-                        type(dep_name)
-                    )
-                )
+                error(("invalid type of '%s.deps[%d]' (string expected, got %s)"):format(name, i, type(dep_name)))
             elseif dep_name == "" then
                 error(("invalid '%s.deps[%d]' (non-empty string expected)"):format(name, i))
             elseif dep_name:match("^[%w_.-]+$") == nil then
@@ -207,12 +189,7 @@ function Config:add_plugin(name, spec)
 
     if spec.path ~= nil then
         if type(spec.path) ~= "string" then
-            error(
-                ("invalid type of '%s.path' (string expected, got %s)"):format(
-                    name,
-                    type(spec.path)
-                )
-            )
+            error(("invalid type of '%s.path' (string expected, got %s)"):format(name, type(spec.path)))
         elseif spec.path == "" then
             error(("invalid '%s.path' (non-empty string expected)"):format(name))
         end
@@ -220,21 +197,14 @@ function Config:add_plugin(name, spec)
     end
     if spec.url ~= nil then
         if type(spec.url) ~= "string" then
-            error(
-                ("invalid type of '%s.url' (string expected, got %s)"):format(name, type(spec.url))
-            )
+            error(("invalid type of '%s.url' (string expected, got %s)"):format(name, type(spec.url)))
         elseif spec.url == "" then
             error(("invalid '%s.url' (non-empty string expected)"):format(name))
         end
     end
     if spec.version ~= nil then
         if type(spec.version) ~= "string" then
-            error(
-                ("invalid type of '%s.version' (string expected, got %s)"):format(
-                    name,
-                    type(spec.version)
-                )
-            )
+            error(("invalid type of '%s.version' (string expected, got %s)"):format(name, type(spec.version)))
         elseif spec.version == "" then
             error(("invalid '%s.version' (non-empty string expected)"):format(name))
         end

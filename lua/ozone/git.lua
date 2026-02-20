@@ -62,13 +62,11 @@ function M.checkout(path, version)
         version,
     }, { text = true })
     if not result then
-        return nil,
-            ("checkout failed: %s at %s: %s"):format(version, path, system_err or "unknown error")
+        return nil, ("checkout failed: %s at %s: %s"):format(version, path, system_err or "unknown error")
     end
 
     if not is_success(result) then
-        return nil,
-            format_system_failure(("checkout failed: %s at %s"):format(version, path), result)
+        return nil, format_system_failure(("checkout failed: %s at %s"):format(version, path), result)
     end
 
     return true, nil

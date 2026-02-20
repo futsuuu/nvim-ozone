@@ -133,10 +133,8 @@ function M._run_e2e(name)
                     name,
                     status.code,
                     status.signal,
-                    #stdout > 0 and ("\n---- stdout ----\n%s"):format(table.concat(stdout, ""))
-                        or "",
-                    #stderr > 0 and ("\n---- stderr ----\n%s"):format(table.concat(stderr, ""))
-                        or ""
+                    #stdout > 0 and ("\n---- stdout ----\n%s"):format(table.concat(stdout, "")) or "",
+                    #stderr > 0 and ("\n---- stderr ----\n%s"):format(table.concat(stderr, "")) or ""
                 )
             )
         end
