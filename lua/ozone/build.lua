@@ -152,21 +152,13 @@ function Build:generate_script(config)
 
     local success, create_dir_err = fs.create_dir_all(output_dir)
     if not success then
-        self:err(
-            "failed to create output directory %s: %s",
-            output_dir,
-            create_dir_err or "unknown error"
-        )
+        self:err("failed to create output directory %s: %s", output_dir, create_dir_err or "unknown error")
         return nil
     end
 
     local wrote, write_err = fs.write_file(self._output_path, script:tostring())
     if not wrote then
-        self:err(
-            "failed to write generated script %s: %s",
-            self._output_path,
-            write_err or "unknown error"
-        )
+        self:err("failed to write generated script %s: %s", self._output_path, write_err or "unknown error")
         return nil
     end
 

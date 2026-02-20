@@ -64,9 +64,7 @@ runner.add("add_plugin() validates version source requirements", function()
     })
     assert(ok == false)
     assert(type(err) == "string")
-    assert(
-        string.match(err, "'version_without_url.version' requires 'version_without_url.url'") ~= nil
-    )
+    assert(string.match(err, "'version_without_url.version' requires 'version_without_url.url'") ~= nil)
 end)
 
 runner.add("add_plugin() requires path or url", function()
@@ -145,12 +143,7 @@ runner.add("get_plugin_names_in_load_order() warns on undefined deps", function(
 
     local order, warnings = config:get_plugin_names_in_load_order()
     assert(#warnings == 1)
-    assert(
-        string.match(
-            warnings[1],
-            'plugin "missing_dep_plugin" depends on undefined plugin "unknown"'
-        ) ~= nil
-    )
+    assert(string.match(warnings[1], 'plugin "missing_dep_plugin" depends on undefined plugin "unknown"') ~= nil)
     assert(#order == 1)
     assert(order[1] == "missing_dep_plugin")
     assert(#plugin.deps == 0)
