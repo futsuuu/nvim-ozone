@@ -16,6 +16,8 @@ local ozone = {}
 ---@field url? string
 --- Git ref (branch, tag, or revision)
 ---@field version? string
+--- Plugin names this plugin depends on
+---@field deps? string[]
 
 ---@param specs table<string, ozone.PluginSpec>
 ---@return nil

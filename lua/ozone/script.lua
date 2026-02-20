@@ -1,7 +1,9 @@
 local buffer = require("string.buffer")
 
 ---@class ozone.Script
+--- Prepended in order (last item will be loaded at the first)
 ---@field rtp_prefix string[]
+--- Appended in order (last item will be loaded at the last)
 ---@field rtp_suffix string[]
 local Script = {}
 ---@private
