@@ -53,11 +53,17 @@ ozone.add({
         url = "https://github.com/author/repo",
         path = vim.fn.stdpath("data") .. "/ozone/custom/repo",
     },
+    dependent_plugin = {
+        path = "path/to/dependent/plugin",
+        deps = { "remote_plugin" },
+    },
 })
 ```
 
 `url` currently supports `git clone` only.
 `version` is optional and is resolved with `git checkout`, so branch names, tags, and revisions can be used.
+`deps` is optional and controls plugin load order.
+Missing dependencies and circular dependencies are reported as warnings, and loading continues with best-effort ordering.
 Invalid plugin specs or install failures are collected and reported together after the build step.
 
 ## Build Scripts

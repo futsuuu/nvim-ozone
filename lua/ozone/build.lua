@@ -92,8 +92,9 @@ end
 function Build:generate_script(config)
     local script = Script.new()
     local queue = Queue.Counting.new()
+    local plugins = config:get_plugins()
 
-    for name, spec in pairs(config:get_plugins()) do
+    for name, spec in pairs(plugins) do
         local callback = queue:callback()
         coro.pspawn(function(success, ...)
             if success then
@@ -126,15 +127,22 @@ function Build:generate_script(config)
         end
     end
 
-    -- TODO: fix the order of paths in 'runtimepath'
-    for name, result in pairs(results) do
-        if result.path_is_dir then
-            table.insert(script.rtp_prefix, result.spec.path)
-            if result.has_after_dir then
-                table.insert(script.rtp_suffix, result.spec.path .. "/after")
+    local plugin_names_in_load_order, warnings = config:get_plugin_names_in_load_order()
+    for _, message in ipairs(warnings) do
+        self:err("warning: %s", message)
+    end
+
+    for _, name in ipairs(plugin_names_in_load_order) do
+        local result = results[name]
+        if result ~= nil then
+            if result.path_is_dir then
+                table.insert(script.rtp_prefix, 1, result.spec.path)
+                if result.has_after_dir then
+                    table.insert(script.rtp_suffix, 1, result.spec.path .. "/after")
+                end
+            elseif result.spec.source.kind == "path" then
+                self:err("plugin %q path is not a directory: %s", name, result.spec.path)
             end
-        elseif result.spec.source.kind == "path" then
-            self:err("plugin %q path is not a directory: %s", name, result.spec.path)
         end
     end
 

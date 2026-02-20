@@ -2,6 +2,8 @@
 ---@field private _plugins table<string, ozone.Config.PluginSpec>
 ---@field private _plugin_name_counts table<string, integer>
 ---@field private _install_root string
+---@field private _dep_names_by_spec table<ozone.Config.PluginSpec, string[]>
+---@field private _plugin_name_by_spec table<ozone.Config.PluginSpec, string>
 local Config = {}
 ---@private
 Config.__index = Config
@@ -9,6 +11,7 @@ Config.__index = Config
 ---@class ozone.Config.PluginSpec
 ---@field path string
 ---@field source ozone.Config.PluginSource
+---@field deps self[]
 
 ---@alias ozone.Config.PluginSource
 ---| ozone.Config.PluginSource.Path
@@ -26,6 +29,8 @@ function Config.new()
         _plugins = {},
         _plugin_name_counts = {},
         _install_root = vim.fs.joinpath(vim.fn.stdpath("data"), "ozone", "_"),
+        _dep_names_by_spec = {},
+        _plugin_name_by_spec = {},
     }, Config)
 end
 
@@ -38,6 +43,111 @@ end
 ---@return table<string, ozone.Config.PluginSpec>
 function Config:get_plugins()
     return self._plugins
+end
+
+---@private
+---@return string[]
+function Config:_sorted_plugin_names()
+    local names = {} ---@type string[]
+    for name, _ in pairs(self._plugins) do
+        table.insert(names, name)
+    end
+    table.sort(names)
+    return names
+end
+
+---@private
+---@return string[] warnings
+function Config:_resolve_plugin_deps()
+    local warnings = {} ---@type string[]
+
+    -- `spec.deps` stores spec references, so string names are resolved after all
+    -- plugins have been registered.
+    for _, name in ipairs(self:_sorted_plugin_names()) do
+        local spec = assert(self._plugins[name])
+        local dep_specs = {} ---@type ozone.Config.PluginSpec[]
+        local seen_dep_specs = {} ---@type table<ozone.Config.PluginSpec, boolean>
+        for _, dep_name in ipairs(self._dep_names_by_spec[spec] or {}) do
+            local dep_spec = self._plugins[dep_name]
+            if dep_spec == nil then
+                table.insert(
+                    warnings,
+                    ("plugin %q depends on undefined plugin %q"):format(name, dep_name)
+                )
+            elseif not seen_dep_specs[dep_spec] then
+                seen_dep_specs[dep_spec] = true
+                table.insert(dep_specs, dep_spec)
+            end
+        end
+        table.sort(dep_specs, function(left, right)
+            local left_name = assert(self._plugin_name_by_spec[left])
+            local right_name = assert(self._plugin_name_by_spec[right])
+            return left_name < right_name
+        end)
+        spec.deps = dep_specs
+    end
+
+    return warnings
+end
+
+---@return string[] ordered_names
+---@return string[] warnings
+function Config:get_plugin_names_in_load_order()
+    local warnings = self:_resolve_plugin_deps()
+
+    local ordered_names = {} ---@type string[]
+    local spec_states = {} ---@type table<ozone.Config.PluginSpec, "visiting" | "visited">
+    -- Deduplicate warnings per edge when the same cycle is encountered again.
+    local warned_edges = {} ---@type table<string, boolean>
+
+    ---@param spec ozone.Config.PluginSpec
+    ---@return nil
+    local function visit(spec)
+        local state = spec_states[spec]
+        if state == "visited" then
+            return
+        elseif state == "visiting" then
+            return
+        end
+
+        -- DFS with 3-state markers builds topological order while allowing
+        -- cycle detection without aborting the build.
+        spec_states[spec] = "visiting"
+
+        local name = assert(self._plugin_name_by_spec[spec])
+        local deps = spec.deps
+        for _, dep_spec in ipairs(deps) do
+            local dep_name = assert(self._plugin_name_by_spec[dep_spec])
+            local dep_state = spec_states[dep_spec]
+            if dep_state == "visiting" then
+                local edge_key = name .. "->" .. dep_name
+                if not warned_edges[edge_key] then
+                    warned_edges[edge_key] = true
+                    table.insert(
+                        warnings,
+                        ("plugin %q has circular dependency on %q; continuing with best-effort order"):format(
+                            name,
+                            dep_name
+                        )
+                    )
+                end
+            else
+                visit(dep_spec)
+            end
+        end
+
+        spec_states[spec] = "visited"
+        table.insert(ordered_names, name)
+    end
+
+    for _, name in ipairs(self:_sorted_plugin_names()) do
+        local spec = self._plugins[name]
+        if spec ~= nil then
+            visit(spec)
+        end
+    end
+
+    return ordered_names, warnings
 end
 
 ---@package
@@ -62,6 +172,42 @@ function Config:add_plugin(name, spec)
     end
     if type(spec) ~= "table" then
         error(("invalid type of 'specs.%s' (table expected, got %s)"):format(name, type(spec)))
+    end
+
+    local dep_names = {} ---@type string[]
+    if spec.deps ~= nil then
+        if type(spec.deps) ~= "table" then
+            error(
+                ("invalid type of '%s.deps' (string[] expected, got %s)"):format(
+                    name,
+                    type(spec.deps)
+                )
+            )
+        elseif not vim.islist(spec.deps) then
+            error(("invalid '%s.deps' (string[] expected)"):format(name))
+        end
+        for i, dep_name in ipairs(spec.deps) do
+            if type(dep_name) ~= "string" then
+                error(
+                    ("invalid type of '%s.deps[%d]' (string expected, got %s)"):format(
+                        name,
+                        i,
+                        type(dep_name)
+                    )
+                )
+            elseif dep_name == "" then
+                error(("invalid '%s.deps[%d]' (non-empty string expected)"):format(name, i))
+            elseif dep_name:match("^[%w_.-]+$") == nil then
+                error(
+                    ([[invalid '%s.deps[%d]' (only letters, digits, "_", ".", and "-" are allowed, got %q)]]):format(
+                        name,
+                        i,
+                        dep_name
+                    )
+                )
+            end
+            table.insert(dep_names, dep_name)
+        end
     end
 
     if spec.path ~= nil then
@@ -110,6 +256,11 @@ function Config:add_plugin(name, spec)
     local name_count = (self._plugin_name_counts[name] or 0) + 1
     self._plugin_name_counts[name] = name_count
     if name_count > 1 then
+        local existing_spec = self._plugins[name]
+        if existing_spec ~= nil then
+            self._dep_names_by_spec[existing_spec] = nil
+            self._plugin_name_by_spec[existing_spec] = nil
+        end
         self._plugins[name] = nil
         error(("plugin name %q is duplicated (definition #%d)"):format(name, name_count))
     end
@@ -123,6 +274,7 @@ function Config:add_plugin(name, spec)
                 url = spec.url,
                 version = spec.version,
             },
+            deps = {},
         }
     else
         local plugin_path = assert(spec.path)
@@ -131,10 +283,13 @@ function Config:add_plugin(name, spec)
             source = {
                 kind = "path",
             },
+            deps = {},
         }
     end
 
     self._plugins[name] = resolved_spec
+    self._dep_names_by_spec[resolved_spec] = dep_names
+    self._plugin_name_by_spec[resolved_spec] = name
     return resolved_spec
 end
 
