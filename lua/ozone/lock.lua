@@ -7,20 +7,8 @@ local M = {}
 ---@field revision string
 ---@field locked_version? string
 
----@class ozone.Lock.RawPlugin
----@field url? string
----@field revision? string
----@field locked_version? string
-
----@class ozone.Lock.RawLockFile
----@field plugins? table<string, ozone.Lock.RawPlugin>
-
----@param lock_path string
----@param message string
----@return string
-local function format_read_error(lock_path, message)
-    return ("failed to read lock file %s: %s"):format(lock_path, message)
-end
+---@class ozone.Lock.File
+---@field plugins table<string, ozone.Lock.Plugin>
 
 ---@param plugins table<string, ozone.Lock.Plugin>
 ---@return string[]
@@ -38,86 +26,24 @@ function M.path()
     return vim.fs.joinpath(vim.fn.stdpath("config"), "ozone-lock.json")
 end
 
----@return table<string, ozone.Lock.Plugin>? plugins
----@return string? err
+---@return table<string, ozone.Lock.Plugin> plugins
 function M.read()
     local lock_path = M.path()
     if not fs.exists(lock_path) then
-        return {}, nil
+        return {}
     end
 
-    local data, read_err = fs.read_file(lock_path)
-    if not data then
-        return nil, format_read_error(lock_path, read_err or "unknown error")
-    end
-
-    local ok, decoded_or_err = pcall(vim.json.decode, data)
-    if not ok then
-        return nil, format_read_error(lock_path, tostring(decoded_or_err))
-    end
-
-    if type(decoded_or_err) ~= "table" then
-        return nil, format_read_error(lock_path, "top-level object must be a table")
-    end
-
-    local decoded = decoded_or_err ---@type ozone.Lock.RawLockFile
-    local raw_plugins = decoded.plugins
-    if raw_plugins == nil then
-        return {}, nil
-    end
-    if type(raw_plugins) ~= "table" then
-        return nil, format_read_error(lock_path, "field 'plugins' must be a table")
-    end
-
-    local plugins = {} ---@type table<string, ozone.Lock.Plugin>
-    for name, raw_entry in pairs(raw_plugins) do
-        if type(raw_entry) ~= "table" then
-            return nil, format_read_error(lock_path, ("plugin %q entry must be a table"):format(name))
-        end
-
-        local url = raw_entry.url
-        local revision = raw_entry.revision
-        local locked_version = raw_entry.locked_version
-
-        if type(url) ~= "string" or url == "" then
-            return nil, format_read_error(lock_path, ("plugin %q field 'url' must be a non-empty string"):format(name))
-        end
-        if type(revision) ~= "string" or revision == "" then
-            return nil,
-                format_read_error(lock_path, ("plugin %q field 'revision' must be a non-empty string"):format(name))
-        end
-        if locked_version ~= nil and (type(locked_version) ~= "string" or locked_version == "") then
-            return nil,
-                format_read_error(
-                    lock_path,
-                    ("plugin %q field 'locked_version' must be a non-empty string"):format(name)
-                )
-        end
-
-        plugins[name] = {
-            url = url,
-            revision = revision,
-            locked_version = locked_version,
-        }
-    end
-
-    return plugins, nil
+    local data = assert(fs.read_file(lock_path))
+    local decoded = vim.json.decode(data) --[[@as ozone.Lock.File]]
+    return decoded.plugins
 end
 
 ---@param plugins table<string, ozone.Lock.Plugin>
----@return boolean? success
----@return string? err
+---@return nil
 function M.write(plugins)
     local lock_path = M.path()
-    local lock_dir = vim.fs.dirname(lock_path)
-    if not lock_dir then
-        return nil, ("failed to determine lock file directory: %s"):format(lock_path)
-    end
-
-    local created, create_err = fs.create_dir_all(lock_dir)
-    if not created then
-        return nil, ("failed to create lock file directory %s: %s"):format(lock_dir, create_err or "unknown error")
-    end
+    local lock_dir = assert(vim.fs.dirname(lock_path))
+    assert(fs.create_dir_all(lock_dir))
 
     local serialized_plugins = {} ---@type table<string, ozone.Lock.Plugin>
     for _, name in ipairs(sorted_plugin_names(plugins)) do
@@ -129,19 +55,10 @@ function M.write(plugins)
         }
     end
 
-    local ok, encoded_or_err = pcall(vim.json.encode, {
+    local encoded = vim.json.encode({
         plugins = serialized_plugins,
     })
-    if not ok then
-        return nil, ("failed to encode lock file %s: %s"):format(lock_path, tostring(encoded_or_err))
-    end
-
-    local wrote, write_err = fs.write_file(lock_path, encoded_or_err .. "\n")
-    if not wrote then
-        return nil, ("failed to write lock file %s: %s"):format(lock_path, write_err or "unknown error")
-    end
-
-    return true, nil
+    assert(fs.write_file(lock_path, encoded .. "\n"))
 end
 
 return M

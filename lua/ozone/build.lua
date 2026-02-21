@@ -226,10 +226,7 @@ function Build:update_lock_file(config)
         end
     end
 
-    local wrote, write_err = lock.write(lock_plugins)
-    if not wrote then
-        self:err("%s", write_err or "failed to write lock file")
-    end
+    lock.write(lock_plugins)
 end
 
 ---@package
@@ -258,11 +255,7 @@ function Build:generate_script(config)
     local script = Script.new()
     local queue = Queue.Counting.new()
     local plugins = config:get_plugins()
-    local lock_plugins, lock_err = lock.read()
-    if not lock_plugins then
-        self:err("%s", lock_err or "failed to read lock file")
-        lock_plugins = {}
-    end
+    local lock_plugins = lock.read()
 
     for _, spec in pairs(plugins) do
         local callback = queue:callback()
