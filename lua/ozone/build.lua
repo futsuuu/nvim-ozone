@@ -130,6 +130,14 @@ function Build:generate_script(config)
         self:err("warning: %s", message)
     end
 
+    for _, path in ipairs(vim.opt.runtimepath:get() --[=[@as string[]]=]) do
+        if fs.is_dir(path) then
+            table.insert(script.default_rtdirs, {
+                path = vim.fs.abspath(path),
+            })
+        end
+    end
+
     for _, name in ipairs(plugin_names_in_load_order) do
         local result = results[name]
         if result ~= nil then
