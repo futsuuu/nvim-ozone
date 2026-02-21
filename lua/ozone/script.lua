@@ -51,11 +51,16 @@ function Script:tostring()
 
     buf:put('vim.api.nvim_set_option_value("loadplugins", false, {})\n')
 
-    local rtp = {} ---@type string[]
-    for _, rtdir in ipairs(all_rtdirs) do
-        table.insert(rtp, rtdir.path)
+    do
+        local rtp = {} ---@type string[]
+        for _, rtdir in ipairs(all_rtdirs) do
+            table.insert(rtp, rtdir.path)
+        end
+        local saved = vim.o.runtimepath
+        vim.opt.runtimepath = rtp --[[@as any]]
+        buf:putf('vim.api.nvim_set_option_value("runtimepath", %q, {})\n', vim.o.runtimepath)
+        vim.o.runtimepath = saved
     end
-    buf:putf('vim.api.nvim_set_option_value("runtimepath", %q, {})\n', table.concat(rtp, ","))
 
     for _, rtdir in ipairs(all_rtdirs) do
         for _, path in ipairs(rtdir.plugin_files) do
