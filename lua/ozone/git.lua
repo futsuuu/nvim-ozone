@@ -50,6 +50,89 @@ local function is_success(result)
 end
 
 ---@param path string
+---@param ref string
+---@return string? revision
+---@return string? err
+function M.rev_parse(path, ref)
+    local result, system_err = run_system({
+        "git",
+        "-C",
+        path,
+        "rev-parse",
+        ref,
+    }, { text = true })
+    if not result then
+        return nil, ("rev-parse failed: %s at %s: %s"):format(ref, path, system_err or "unknown error")
+    end
+
+    if not is_success(result) then
+        return nil, format_system_failure(("rev-parse failed: %s at %s"):format(ref, path), result)
+    end
+
+    local stdout, _ = read_outputs(result)
+    stdout = vim.trim(stdout)
+    if stdout == "" then
+        return nil, ("rev-parse failed: %s at %s: empty stdout"):format(ref, path)
+    end
+    return stdout, nil
+end
+
+---@param path string
+---@return string? revision
+---@return string? err
+function M.revision(path)
+    return M.rev_parse(path, "HEAD")
+end
+
+---@param path string
+---@param version string
+---@return string? revision
+---@return string? err
+function M.resolve_version_revision(path, version)
+    local revision, rev_parse_err = M.rev_parse(path, version)
+    if revision then
+        return revision, nil
+    end
+
+    revision, rev_parse_err = M.rev_parse(path, "origin/" .. version)
+    if revision then
+        return revision, nil
+    end
+
+    return nil, rev_parse_err
+end
+
+---@param path string
+---@return string? revision
+---@return string? err
+function M.remote_head_revision(path)
+    return M.rev_parse(path, "origin/HEAD")
+end
+
+---@param path string
+---@return boolean? success
+---@return string? err
+function M.fetch(path)
+    local result, system_err = run_system({
+        "git",
+        "-C",
+        path,
+        "fetch",
+        "--prune",
+        "--tags",
+    }, { text = true })
+    if not result then
+        return nil, ("fetch failed at %s: %s"):format(path, system_err or "unknown error")
+    end
+
+    if not is_success(result) then
+        return nil, format_system_failure(("fetch failed at %s"):format(path), result)
+    end
+
+    return true, nil
+end
+
+---@param path string
 ---@param version string
 ---@return boolean? success
 ---@return string? err
