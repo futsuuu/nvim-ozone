@@ -134,9 +134,13 @@ function Build:generate_script(config)
         local result = results[name]
         if result ~= nil then
             if result.path_is_dir then
-                table.insert(script.rtp_prefix, 1, result.spec.path)
+                table.insert(script.rtdirs, {
+                    path = result.spec.path,
+                })
                 if result.has_after_dir then
-                    table.insert(script.rtp_suffix, 1, result.spec.path .. "/after")
+                    table.insert(script.after_rtdirs, 1, {
+                        path = result.spec.path .. "/after",
+                    })
                 end
             elseif result.spec.source.kind == "path" then
                 self:err("plugin %q path is not a directory: %s", name, result.spec.path)
