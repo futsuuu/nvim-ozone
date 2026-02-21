@@ -7,6 +7,14 @@ local M = {}
 ---@field revision string
 ---@field locked_version? string
 
+---@class ozone.Lock.RawPlugin
+---@field url? string
+---@field revision? string
+---@field locked_version? string
+
+---@class ozone.Lock.RawLockFile
+---@field plugins? table<string, ozone.Lock.RawPlugin>
+
 ---@param lock_path string
 ---@param message string
 ---@return string
@@ -52,7 +60,8 @@ function M.read()
         return nil, format_read_error(lock_path, "top-level object must be a table")
     end
 
-    local raw_plugins = decoded_or_err.plugins
+    local decoded = decoded_or_err ---@type ozone.Lock.RawLockFile
+    local raw_plugins = decoded.plugins
     if raw_plugins == nil then
         return {}, nil
     end
@@ -62,9 +71,6 @@ function M.read()
 
     local plugins = {} ---@type table<string, ozone.Lock.Plugin>
     for name, raw_entry in pairs(raw_plugins) do
-        if type(name) ~= "string" then
-            return nil, format_read_error(lock_path, "plugin name must be a string")
-        end
         if type(raw_entry) ~= "table" then
             return nil, format_read_error(lock_path, ("plugin %q entry must be a table"):format(name))
         end
@@ -113,7 +119,7 @@ function M.write(plugins)
         return nil, ("failed to create lock file directory %s: %s"):format(lock_dir, create_err or "unknown error")
     end
 
-    local serialized_plugins = {}
+    local serialized_plugins = {} ---@type table<string, ozone.Lock.Plugin>
     for _, name in ipairs(sorted_plugin_names(plugins)) do
         local plugin = plugins[name]
         serialized_plugins[name] = {
