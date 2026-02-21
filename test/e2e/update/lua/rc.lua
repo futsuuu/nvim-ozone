@@ -5,13 +5,6 @@ local META_PATH = vim.fs.joinpath(vim.fn.stdpath("state"), "update-meta.json")
 local STAGE_PATH = vim.fs.joinpath(vim.fn.stdpath("state"), "update-stage.json")
 local REMOVE_REMOVED_FLAG_PATH = vim.fs.joinpath(vim.fn.stdpath("state"), "update-remove-removed")
 
----@class test.e2e.update.Meta
----@field tracked_repo string
----@field tracked_rev string
----@field versioned_repo string
----@field versioned_rev string
----@field removed_repo string
-
 ---@class test.e2e.update.Stage
 ---@field tracked_next_rev string
 
