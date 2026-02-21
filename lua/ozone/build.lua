@@ -86,6 +86,13 @@ function Build:_install_plugin(spec)
     error(("unsupported source kind: %s"):format(spec.source.kind))
 end
 
+---@param path string
+---@param pattern string
+---@return string[]
+local function globpath(path, pattern)
+    return vim.fn.globpath(path, pattern, false, true)
+end
+
 ---@param config ozone.Config
 ---@return string? path
 function Build:generate_script(config)
@@ -130,13 +137,34 @@ function Build:generate_script(config)
         self:err("warning: %s", message)
     end
 
+    do
+        local default_rtp = vim.opt.runtimepath:get() ---@type string[]
+        for _, path in ipairs(default_rtp) do
+            if fs.is_dir(path) then
+                table.insert(script.default_rtdirs, {
+                    path = vim.fs.abspath(path),
+                    plugin_files = globpath(path, "plugin/**/*.{vim,lua}"),
+                    ftdetect_files = globpath(path, "ftdetect/*.{vim,lua}"),
+                })
+            end
+        end
+    end
+
     for _, name in ipairs(plugin_names_in_load_order) do
         local result = results[name]
         if result ~= nil then
             if result.path_is_dir then
-                table.insert(script.rtp_prefix, 1, result.spec.path)
+                table.insert(script.rtdirs, {
+                    path = result.spec.path,
+                    plugin_files = globpath(result.spec.path, "plugin/**/*.{vim,lua}"),
+                    ftdetect_files = globpath(result.spec.path, "ftdetect/*.{vim,lua}"),
+                })
                 if result.has_after_dir then
-                    table.insert(script.rtp_suffix, 1, result.spec.path .. "/after")
+                    table.insert(script.after_rtdirs, 1, {
+                        path = result.spec.path .. "/after",
+                        plugin_files = globpath(result.spec.path .. "/after", "plugin/**/*.{vim,lua}"),
+                        ftdetect_files = globpath(result.spec.path .. "/after", "ftdetect/*.{vim,lua}"),
+                    })
                 end
             elseif result.spec.source.kind == "path" then
                 self:err("plugin %q path is not a directory: %s", name, result.spec.path)
