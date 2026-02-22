@@ -1,18 +1,7 @@
 local runner = require("test.runner")
 
-local Config = require("ozone.config")
 local fs = require("ozone.x.fs")
 local lock = require("ozone.lock")
-
----@param specs table<string, ozone.Config.LockPluginSpec>
----@return ozone.Config
-local function lock_config_from_specs(specs)
-    local config = Config.new()
-    for name, spec in pairs(specs) do
-        config:add_locked_plugin(name, spec)
-    end
-    return config
-end
 
 runner.add("write() formats lock file deterministically", function()
     local path = lock.path()
@@ -22,7 +11,7 @@ runner.add("write() formats lock file deterministically", function()
     end
 
     local ok, err = pcall(function()
-        assert(lock.write(lock_config_from_specs({
+        assert(lock.write({
             zebra = {
                 url = "https://example.com/zebra",
                 version = "v1.0.0",
@@ -32,10 +21,10 @@ runner.add("write() formats lock file deterministically", function()
                 url = "https://example.com/alpha",
                 revision = "rev-a",
             },
-        })))
+        }))
         local first = assert(fs.read_file(path))
 
-        assert(lock.write(lock_config_from_specs({
+        assert(lock.write({
             alpha = {
                 url = "https://example.com/alpha",
                 revision = "rev-a",
@@ -45,7 +34,7 @@ runner.add("write() formats lock file deterministically", function()
                 version = "v1.0.0",
                 revision = "rev-z",
             },
-        })))
+        }))
         local second = assert(fs.read_file(path))
 
         local expected = [[
@@ -99,13 +88,11 @@ runner.add("read() treats JSON null version as absent", function()
 ]]
         assert(fs.write_file(path, before))
 
-        local lock_config = lock.read()
-        local plugins = lock_config:get_plugins()
-        assert(plugins.tracked.source.kind == "git")
-        assert(plugins.tracked.source.version == nil)
-        assert(plugins.tracked.source.revision == "rev-1")
+        local plugins = lock.read()
+        assert(plugins.tracked.version == nil)
+        assert(plugins.tracked.revision == "rev-1")
 
-        assert(lock.write(lock_config))
+        assert(lock.write(plugins))
         local after = assert(fs.read_file(path))
         local expected = [[
 {

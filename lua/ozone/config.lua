@@ -1,8 +1,11 @@
+local lock = require("ozone.lock")
+
 ---@class ozone.Config
 ---@field private _plugins table<string, ozone.Config.PluginSpec>
 ---@field private _plugin_name_counts table<string, integer>
 ---@field private _install_root string
 ---@field private _dep_names_by_spec table<ozone.Config.PluginSpec, string[]>
+---@field private _lock_plugins table<string, ozone.Config.LockPluginSpec>
 local Config = {}
 ---@private
 Config.__index = Config
@@ -36,11 +39,13 @@ function Config.new()
         _plugin_name_counts = {},
         _install_root = vim.fs.joinpath(vim.fn.stdpath("data"), "ozone", "_"),
         _dep_names_by_spec = {},
+        _lock_plugins = {},
     }, Config)
 end
 
 ---@return nil
 function Config:load()
+    self._lock_plugins = lock.read()
     -- TODO: evaluate all build scripts
     require("_build")
 end
@@ -155,6 +160,26 @@ function Config:_default_plugin_path(name)
     return vim.fs.joinpath(self._install_root, name)
 end
 
+---@private
+---@param name string
+---@param url string
+---@param version? string
+---@return string? revision
+function Config:_resolve_locked_revision(name, url, version)
+    local lock_plugin = self._lock_plugins[name]
+    if lock_plugin == nil then
+        return nil
+    end
+
+    local is_same_source = lock_plugin.url == url
+    local is_same_version = lock_plugin.version == version
+    if is_same_source and is_same_version then
+        return lock_plugin.revision
+    end
+
+    return nil
+end
+
 ---@param name string
 ---@param spec ozone.PluginSpec
 ---@return ozone.Config.PluginSpec
@@ -240,13 +265,16 @@ function Config:add_plugin(name, spec)
 
     local resolved_spec = nil ---@type ozone.Config.PluginSpec?
     if spec.url then
+        local source_url = assert(spec.url)
+        local source_version = spec.version
         resolved_spec = {
             name = name,
             path = spec.path or self:_default_plugin_path(name),
             source = {
                 kind = "git",
-                url = spec.url,
-                version = spec.version,
+                url = source_url,
+                version = source_version,
+                revision = self:_resolve_locked_revision(name, source_url, source_version),
             },
             deps = {},
         }
@@ -264,67 +292,6 @@ function Config:add_plugin(name, spec)
 
     self._plugins[name] = resolved_spec
     self._dep_names_by_spec[resolved_spec] = dep_names
-    return resolved_spec
-end
-
----@param name string
----@param spec ozone.Config.LockPluginSpec
----@return ozone.Config.PluginSpec
-function Config:add_locked_plugin(name, spec)
-    if type(name) ~= "string" then
-        error(("invalid type of plugin name (string expected, got %s)"):format(type(name)))
-    elseif name:match("^[%w_.-]+$") == nil then
-        error(('invalid plugin name (only letters, digits, "_", ".", and "-" are allowed, got %q)'):format(name))
-    end
-    if type(spec) ~= "table" then
-        error(("invalid type of lock plugin %q (table expected, got %s)"):format(name, type(spec)))
-    end
-
-    if type(spec.url) ~= "string" then
-        error(("invalid type of '%s.url' (string expected, got %s)"):format(name, type(spec.url)))
-    elseif spec.url == "" then
-        error(("invalid '%s.url' (non-empty string expected)"):format(name))
-    end
-    if spec.version ~= nil then
-        if type(spec.version) ~= "string" then
-            error(("invalid type of '%s.version' (string expected, got %s)"):format(name, type(spec.version)))
-        elseif spec.version == "" then
-            error(("invalid '%s.version' (non-empty string expected)"):format(name))
-        end
-    end
-    if spec.revision ~= nil then
-        if type(spec.revision) ~= "string" then
-            error(("invalid type of '%s.revision' (string expected, got %s)"):format(name, type(spec.revision)))
-        elseif spec.revision == "" then
-            error(("invalid '%s.revision' (non-empty string expected)"):format(name))
-        end
-    end
-
-    local name_count = (self._plugin_name_counts[name] or 0) + 1
-    self._plugin_name_counts[name] = name_count
-    if name_count > 1 then
-        local existing_spec = self._plugins[name]
-        if existing_spec ~= nil then
-            self._dep_names_by_spec[existing_spec] = nil
-        end
-        self._plugins[name] = nil
-        error(("plugin name %q is duplicated (definition #%d)"):format(name, name_count))
-    end
-
-    local resolved_spec = {
-        name = name,
-        path = self:_default_plugin_path(name),
-        source = {
-            kind = "git",
-            url = spec.url,
-            version = spec.version,
-            revision = spec.revision,
-        },
-        deps = {},
-    }
-
-    self._plugins[name] = resolved_spec
-    self._dep_names_by_spec[resolved_spec] = {}
     return resolved_spec
 end
 

@@ -81,12 +81,19 @@ runner.add("add_plugin() validates version source requirements", function()
     assert(string.match(err, "'version_without_url.version' requires 'version_without_url.url'") ~= nil)
 end)
 
-runner.add("add_locked_plugin() resolves git specs with locked revision", function()
+runner.add("add_plugin() applies locked revision from lock file data", function()
     local config = Config.new()
-    local resolved = config:add_locked_plugin("revision_plugin", {
+    rawset(config, "_lock_plugins", {
+        revision_plugin = {
+            url = "https://github.com/author/repo",
+            version = "v1.2.3",
+            revision = "0123456789abcdef",
+        },
+    })
+
+    local resolved = config:add_plugin("revision_plugin", {
         url = "https://github.com/author/repo",
         version = "v1.2.3",
-        revision = "0123456789abcdef",
     })
 
     assert(resolved.name == "revision_plugin")
