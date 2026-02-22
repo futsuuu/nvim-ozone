@@ -24,6 +24,11 @@ Config.__index = Config
 ---@field version? string
 ---@field revision? string
 
+---@class ozone.Config.LockPluginSpec
+---@field url string
+---@field version? string
+---@field revision? string
+
 ---@return self
 function Config.new()
     return setmetatable({
@@ -210,19 +215,12 @@ function Config:add_plugin(name, spec)
             error(("invalid '%s.version' (non-empty string expected)"):format(name))
         end
     end
-    if spec.revision ~= nil then
-        if type(spec.revision) ~= "string" then
-            error(("invalid type of '%s.revision' (string expected, got %s)"):format(name, type(spec.revision)))
-        elseif spec.revision == "" then
-            error(("invalid '%s.revision' (non-empty string expected)"):format(name))
-        end
+    if rawget(spec, "revision") ~= nil then
+        error(("'%s.revision' is reserved for lock file data"):format(name))
     end
 
     if spec.version ~= nil and spec.url == nil then
         error(("'%s.version' requires '%s.url'"):format(name, name))
-    end
-    if spec.revision ~= nil and spec.url == nil then
-        error(("'%s.revision' requires '%s.url'"):format(name, name))
     end
 
     if spec.path == nil and spec.url == nil then
@@ -249,7 +247,6 @@ function Config:add_plugin(name, spec)
                 kind = "git",
                 url = spec.url,
                 version = spec.version,
-                revision = spec.revision,
             },
             deps = {},
         }
@@ -267,6 +264,67 @@ function Config:add_plugin(name, spec)
 
     self._plugins[name] = resolved_spec
     self._dep_names_by_spec[resolved_spec] = dep_names
+    return resolved_spec
+end
+
+---@param name string
+---@param spec ozone.Config.LockPluginSpec
+---@return ozone.Config.PluginSpec
+function Config:add_locked_plugin(name, spec)
+    if type(name) ~= "string" then
+        error(("invalid type of plugin name (string expected, got %s)"):format(type(name)))
+    elseif name:match("^[%w_.-]+$") == nil then
+        error(('invalid plugin name (only letters, digits, "_", ".", and "-" are allowed, got %q)'):format(name))
+    end
+    if type(spec) ~= "table" then
+        error(("invalid type of lock plugin %q (table expected, got %s)"):format(name, type(spec)))
+    end
+
+    if type(spec.url) ~= "string" then
+        error(("invalid type of '%s.url' (string expected, got %s)"):format(name, type(spec.url)))
+    elseif spec.url == "" then
+        error(("invalid '%s.url' (non-empty string expected)"):format(name))
+    end
+    if spec.version ~= nil then
+        if type(spec.version) ~= "string" then
+            error(("invalid type of '%s.version' (string expected, got %s)"):format(name, type(spec.version)))
+        elseif spec.version == "" then
+            error(("invalid '%s.version' (non-empty string expected)"):format(name))
+        end
+    end
+    if spec.revision ~= nil then
+        if type(spec.revision) ~= "string" then
+            error(("invalid type of '%s.revision' (string expected, got %s)"):format(name, type(spec.revision)))
+        elseif spec.revision == "" then
+            error(("invalid '%s.revision' (non-empty string expected)"):format(name))
+        end
+    end
+
+    local name_count = (self._plugin_name_counts[name] or 0) + 1
+    self._plugin_name_counts[name] = name_count
+    if name_count > 1 then
+        local existing_spec = self._plugins[name]
+        if existing_spec ~= nil then
+            self._dep_names_by_spec[existing_spec] = nil
+        end
+        self._plugins[name] = nil
+        error(("plugin name %q is duplicated (definition #%d)"):format(name, name_count))
+    end
+
+    local resolved_spec = {
+        name = name,
+        path = self:_default_plugin_path(name),
+        source = {
+            kind = "git",
+            url = spec.url,
+            version = spec.version,
+            revision = spec.revision,
+        },
+        deps = {},
+    }
+
+    self._plugins[name] = resolved_spec
+    self._dep_names_by_spec[resolved_spec] = {}
     return resolved_spec
 end
 

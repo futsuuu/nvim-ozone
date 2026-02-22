@@ -5,6 +5,9 @@ local fs = require("ozone.x.fs")
 
 local M = {}
 
+---@class ozone.lock.DecodedFile
+---@field plugins table<string, ozone.Config.LockPluginSpec>
+
 ---@param value any
 ---@return string?
 local function normalize_optional_string(value)
@@ -77,9 +80,9 @@ function M.read()
     end
 
     local data = assert(fs.read_file(lock_path))
-    local decoded = vim.json.decode(data) --[[@as { plugins: table<string, ozone.PluginSpec> }]]
+    local decoded = vim.json.decode(data) --[[@as ozone.lock.DecodedFile]]
     for name, plugin in pairs(decoded.plugins) do
-        lock_config:add_plugin(name, {
+        lock_config:add_locked_plugin(name, {
             url = plugin.url,
             version = normalize_optional_string(plugin.version),
             revision = normalize_optional_string(plugin.revision),

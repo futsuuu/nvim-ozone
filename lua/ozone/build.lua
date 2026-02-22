@@ -131,7 +131,7 @@ local function clone_git_plugin_if_needed(spec)
 end
 
 ---@param spec ozone.Config.PluginSpec
----@return ozone.Config.PluginSpec? lock_spec
+---@return ozone.Config.LockPluginSpec? lock_spec
 ---@return string? err
 local function resolve_latest_lock_plugin(spec)
     local source = spec.source
@@ -161,17 +161,10 @@ local function resolve_latest_lock_plugin(spec)
     end
 
     return {
-        name = spec.name,
-        path = spec.path,
-        source = {
-            kind = "git",
-            url = source.url,
-            version = source.version,
-            revision = revision,
-        },
-        deps = {},
-    },
-        nil
+        url = source.url,
+        version = source.version,
+        revision = revision,
+    }, nil
 end
 
 ---@param self ozone.Build
@@ -203,7 +196,7 @@ function Build:_write_lock_file(config, plugin_names_in_load_order)
                         revision_err or "unknown error"
                     )
                 else
-                    local added, add_lock_err = pcall(lock_config.add_plugin, lock_config, name, {
+                    local added, add_lock_err = pcall(lock_config.add_locked_plugin, lock_config, name, {
                         url = spec.source.url,
                         version = spec.source.version,
                         revision = revision,
@@ -234,17 +227,11 @@ function Build:update_lock_file(config)
         local spec = plugins[name]
         if spec and spec.source.kind == "git" then
             local lock_spec, lock_plugin_err = resolve_latest_lock_plugin(spec)
-            if lock_spec and lock_spec.source.kind == "git" then
-                local added, add_lock_err = pcall(lock_config.add_plugin, lock_config, name, {
-                    url = lock_spec.source.url,
-                    version = lock_spec.source.version,
-                    revision = lock_spec.source.revision,
-                })
+            if lock_spec then
+                local added, add_lock_err = pcall(lock_config.add_locked_plugin, lock_config, name, lock_spec)
                 if not added then
                     self:err("plugin %q failed to build lock data: %s", name, add_lock_err)
                 end
-            elseif lock_spec then
-                self:err("plugin %q lock source kind must be git: %s", name, lock_spec.source.kind)
             else
                 self:err("plugin %q failed to update lock data: %s", name, lock_plugin_err or "unknown error")
             end

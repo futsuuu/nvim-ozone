@@ -4,12 +4,12 @@ local Config = require("ozone.config")
 local fs = require("ozone.x.fs")
 local lock = require("ozone.lock")
 
----@param specs table<string, ozone.PluginSpec>
+---@param specs table<string, ozone.Config.LockPluginSpec>
 ---@return ozone.Config
 local function lock_config_from_specs(specs)
     local config = Config.new()
     for name, spec in pairs(specs) do
-        config:add_plugin(name, spec)
+        config:add_locked_plugin(name, spec)
     end
     return config
 end
