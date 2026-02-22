@@ -1,32 +1,37 @@
 local buffer = require("string.buffer")
 
+local Config = require("ozone.config")
 local fs = require("ozone.x.fs")
 
 local M = {}
 
----@class ozone.Lock.Plugin
----@field url string
----@field revision string
----@field locked_version? string
+---@param value any
+---@return string?
+local function normalize_optional_string(value)
+    if value == nil or value == vim.NIL then
+        return nil
+    end
+    return value --[[@as string]]
+end
 
----@class ozone.Lock.File
----@field plugins table<string, ozone.Lock.Plugin>
-
----@param plugins table<string, ozone.Lock.Plugin>
+---@param plugins table<string, ozone.Config.PluginSpec>
 ---@return string[]
-local function sorted_plugin_names(plugins)
+local function sorted_git_plugin_names(plugins)
     local names = {} ---@type string[]
-    for name, _ in pairs(plugins) do
-        table.insert(names, name)
+    for name, spec in pairs(plugins) do
+        if spec.source.kind == "git" then
+            table.insert(names, name)
+        end
     end
     table.sort(names)
     return names
 end
 
----@param plugins table<string, ozone.Lock.Plugin>
+---@param config ozone.Config
 ---@return string
-local function format_lock_file_json(plugins)
-    local names = sorted_plugin_names(plugins)
+local function format_lock_file_json(config)
+    local plugins = config:get_plugins()
+    local names = sorted_git_plugin_names(plugins)
     if #names == 0 then
         return '{ "plugins": {} }\n'
     end
@@ -36,12 +41,18 @@ local function format_lock_file_json(plugins)
 
     buf:put('\n  "plugins": {')
     for i, name in ipairs(names) do
-        local plugin = plugins[name]
+        local spec = assert(plugins[name])
+        local source = spec.source
+        if source.kind ~= "git" then
+            error(("plugin %q source must be git in lock config"):format(name))
+        end
         buf:putf("\n    %s: {", vim.json.encode(name))
-        buf:putf('\n      "url": %s', vim.json.encode(plugin.url))
-        buf:putf(',\n      "revision": %s', vim.json.encode(plugin.revision))
-        if plugin.locked_version then
-            buf:putf(',\n      "locked_version": %s', vim.json.encode(plugin.locked_version))
+        buf:putf('\n      "url": %s', vim.json.encode(source.url))
+        if source.version then
+            buf:putf(',\n      "version": %s', vim.json.encode(source.version))
+        end
+        if source.revision then
+            buf:putf(',\n      "revision": %s', vim.json.encode(source.revision))
         end
         buf:putf("\n    }%s", i == #names and "" or ",")
     end
@@ -57,29 +68,29 @@ function M.path()
     return vim.fs.joinpath(vim.fn.stdpath("config"), "ozone-lock.json")
 end
 
----@return table<string, ozone.Lock.Plugin> plugins
+---@return ozone.Config
 function M.read()
+    local lock_config = Config.new()
     local lock_path = M.path()
     if not fs.exists(lock_path) then
-        return {}
+        return lock_config
     end
 
     local data = assert(fs.read_file(lock_path))
-    local decoded = vim.json.decode(data) --[[@as ozone.Lock.File]]
-    local plugins = {} ---@type table<string, ozone.Lock.Plugin>
+    local decoded = vim.json.decode(data) --[[@as { plugins: table<string, ozone.PluginSpec> }]]
     for name, plugin in pairs(decoded.plugins) do
-        plugins[name] = {
+        lock_config:add_plugin(name, {
             url = plugin.url,
-            revision = plugin.revision,
-            locked_version = plugin.locked_version,
-        }
+            version = normalize_optional_string(plugin.version),
+            revision = normalize_optional_string(plugin.revision),
+        })
     end
-    return plugins
+    return lock_config
 end
 
----@param plugins table<string, ozone.Lock.Plugin>
+---@param config ozone.Config
 ---@return boolean? success, string? err
-function M.write(plugins)
+function M.write(config)
     local lock_path = M.path()
     local lock_dir = assert(vim.fs.dirname(lock_path))
     local created, create_dir_err = fs.create_dir_all(lock_dir)
@@ -87,7 +98,7 @@ function M.write(plugins)
         return nil, create_dir_err
     end
 
-    local encoded = format_lock_file_json(plugins)
+    local encoded = format_lock_file_json(config)
     return fs.write_file(lock_path, encoded)
 end
 

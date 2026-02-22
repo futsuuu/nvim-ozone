@@ -8,8 +8,13 @@ local REMOVE_REMOVED_FLAG_PATH = vim.fs.joinpath(vim.fn.stdpath("state"), "updat
 ---@class test.e2e.update.Stage
 ---@field tracked_next_rev string
 
+---@class test.e2e.update.LockPlugin
+---@field url string
+---@field version? string
+---@field revision? string
+
 ---@class test.e2e.update.LockFile
----@field plugins table<string, ozone.Lock.Plugin>
+---@field plugins table<string, test.e2e.update.LockPlugin>
 
 ---@param path string
 ---@return table?
