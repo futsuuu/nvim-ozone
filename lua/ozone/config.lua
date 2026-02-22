@@ -240,9 +240,6 @@ function Config:add_plugin(name, spec)
             error(("invalid '%s.version' (non-empty string expected)"):format(name))
         end
     end
-    if rawget(spec, "revision") ~= nil then
-        error(("'%s.revision' is reserved for lock file data"):format(name))
-    end
 
     if spec.version ~= nil and spec.url == nil then
         error(("'%s.version' requires '%s.url'"):format(name, name))

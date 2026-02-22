@@ -43,19 +43,6 @@ runner.add("add_plugin() resolves git specs with default install path", function
     assert(resolved.source.revision == nil)
 end)
 
-runner.add("add_plugin() rejects revision field", function()
-    local config = Config.new()
-
-    local ok, err = pcall(config.add_plugin, config, "remote_plugin_locked", {
-        url = "https://github.com/author/repo",
-        revision = "0123456789abcdef",
-    })
-
-    assert(ok == false)
-    assert(type(err) == "string")
-    assert(string.match(err, "'remote_plugin_locked.revision' is reserved for lock file data") ~= nil)
-end)
-
 runner.add("add_plugin() rejects duplicate plugin names", function()
     local config = Config.new()
     config:add_plugin("dup_plugin", {
