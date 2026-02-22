@@ -2,9 +2,11 @@ local Queue = require("ozone.x.queue")
 local coro = require("ozone.x.coro")
 local fs = require("ozone.x.fs")
 
+local Lock = require("ozone.lock")
 local Script = require("ozone.script")
 local git = require("ozone.git")
-local lock = require("ozone.lock")
+
+local LOCK_PATH = vim.fs.joinpath(vim.fn.stdpath("config"), "ozone-lock.json")
 
 ---@class ozone.Build
 ---@field private _errors string[]
@@ -163,7 +165,7 @@ end
 ---@return nil
 function Build:_write_lock_file(config, plugin_names_in_load_order)
     local plugins = config:get_plugins()
-    local lock_plugins = {} ---@type table<string, ozone.Config.LockPluginSpec>
+    local lock = Lock.default()
 
     for _, name in ipairs(plugin_names_in_load_order) do
         local spec = plugins[name]
@@ -178,7 +180,7 @@ function Build:_write_lock_file(config, plugin_names_in_load_order)
                         revision_err or "unknown error"
                     )
                 else
-                    lock_plugins[name] = {
+                    lock.plugins[name] = {
                         url = spec.source.url,
                         version = spec.source.version,
                         revision = revision,
@@ -188,7 +190,7 @@ function Build:_write_lock_file(config, plugin_names_in_load_order)
         end
     end
 
-    local wrote, write_err = lock.write(lock_plugins)
+    local wrote, write_err = lock:write(LOCK_PATH)
     if not wrote then
         self:err("%s", write_err or "failed to write lock file")
     end
@@ -201,20 +203,20 @@ function Build:update_lock_file(config)
     local plugin_names_in_load_order, warnings = config:get_plugin_names_in_load_order()
     report_warnings(self, warnings)
 
-    local lock_plugins = lock.read()
+    local lock = Lock.read(LOCK_PATH)
     for _, name in ipairs(plugin_names_in_load_order) do
         local spec = plugins[name]
         if spec and spec.source.kind == "git" then
             local lock_spec, lock_plugin_err = resolve_latest_lock_plugin(spec)
             if lock_spec then
-                lock_plugins[name] = lock_spec
+                lock.plugins[name] = lock_spec
             else
                 self:err("plugin %q failed to update lock data: %s", name, lock_plugin_err or "unknown error")
             end
         end
     end
 
-    local wrote, write_err = lock.write(lock_plugins)
+    local wrote, write_err = lock:write(LOCK_PATH)
     if not wrote then
         self:err("%s", write_err or "failed to write lock file")
     end

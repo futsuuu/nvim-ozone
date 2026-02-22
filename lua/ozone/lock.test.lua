@@ -1,47 +1,39 @@
 local runner = require("test.runner")
 
-local fs = require("ozone.x.fs")
-local lock = require("ozone.lock")
+local Lock = require("ozone.lock")
 
-runner.add("write() formats lock file deterministically", function()
-    local path = lock.path()
-    local original = nil ---@type string?
-    if fs.exists(path) then
-        original = assert(fs.read_file(path))
-    end
+runner.add("encode() formats lock file deterministically", function()
+    local first_lock = Lock.default()
+    first_lock.plugins.zebra = {
+        url = "https://example.com/zebra",
+        version = "v1.0.0",
+        revision = "rev-z",
+    }
+    first_lock.plugins.alpha = {
+        url = "https://example.com/alpha",
+        revision = "rev-a",
+    }
 
-    local ok, err = pcall(function()
-        assert(lock.write({
-            zebra = {
-                url = "https://example.com/zebra",
-                version = "v1.0.0",
-                revision = "rev-z",
-            },
-            alpha = {
-                url = "https://example.com/alpha",
-                revision = "rev-a",
-            },
-        }))
-        local first = assert(fs.read_file(path))
+    local second_lock = Lock.default()
+    second_lock.plugins.alpha = {
+        url = "https://example.com/alpha",
+        revision = "rev-a",
+    }
+    second_lock.plugins.zebra = {
+        url = "https://example.com/zebra",
+        version = "v1.0.0",
+        revision = "rev-z",
+    }
 
-        assert(lock.write({
-            alpha = {
-                url = "https://example.com/alpha",
-                revision = "rev-a",
-            },
-            zebra = {
-                url = "https://example.com/zebra",
-                version = "v1.0.0",
-                revision = "rev-z",
-            },
-        }))
-        local second = assert(fs.read_file(path))
+    local first = first_lock:encode()
+    local second = second_lock:encode()
 
-        local expected = [[
+    local expected = [[
 {
   "plugins": {
     "alpha": {
       "url": "https://example.com/alpha",
+      "version": null,
       "revision": "rev-a"
     },
     "zebra": {
@@ -52,30 +44,13 @@ runner.add("write() formats lock file deterministically", function()
   }
 }
 ]]
-        assert(first == expected)
-        assert(second == expected)
-    end)
 
-    if original == nil then
-        if fs.exists(path) then
-            assert(fs.remove_file(path))
-        end
-    else
-        assert(fs.write_file(path, original))
-    end
-
-    assert(ok, err)
+    assert(first == expected)
+    assert(second == expected)
 end)
 
-runner.add("read() treats JSON null version as absent", function()
-    local path = lock.path()
-    local original = nil ---@type string?
-    if fs.exists(path) then
-        original = assert(fs.read_file(path))
-    end
-
-    local ok, err = pcall(function()
-        local before = [[
+runner.add("decode() keeps null fields encodable", function()
+    local before = [[
 {
   "plugins": {
     "tracked": {
@@ -86,34 +61,21 @@ runner.add("read() treats JSON null version as absent", function()
   }
 }
 ]]
-        assert(fs.write_file(path, before))
 
-        local plugins = lock.read()
-        assert(plugins.tracked.version == nil)
-        assert(plugins.tracked.revision == "rev-1")
+    local decoded = Lock.decode(before)
+    assert(decoded.plugins.tracked.version == nil)
 
-        assert(lock.write(plugins))
-        local after = assert(fs.read_file(path))
-        local expected = [[
+    local after = decoded:encode()
+    local expected = [[
 {
   "plugins": {
     "tracked": {
       "url": "https://example.com/tracked",
+      "version": null,
       "revision": "rev-1"
     }
   }
 }
 ]]
-        assert(after == expected)
-    end)
-
-    if original == nil then
-        if fs.exists(path) then
-            assert(fs.remove_file(path))
-        end
-    else
-        assert(fs.write_file(path, original))
-    end
-
-    assert(ok, err)
+    assert(after == expected)
 end)

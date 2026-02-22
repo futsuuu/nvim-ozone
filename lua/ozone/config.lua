@@ -1,11 +1,13 @@
-local lock = require("ozone.lock")
+local fs = require("ozone.x.fs")
+
+local Lock = require("ozone.lock")
 
 ---@class ozone.Config
 ---@field private _plugins table<string, ozone.Config.PluginSpec>
 ---@field private _plugin_name_counts table<string, integer>
 ---@field private _install_root string
 ---@field private _dep_names_by_spec table<ozone.Config.PluginSpec, string[]>
----@field private _lock_plugins table<string, ozone.Config.LockPluginSpec>
+---@field private _lock ozone.Lock
 local Config = {}
 ---@private
 Config.__index = Config
@@ -39,13 +41,26 @@ function Config.new()
         _plugin_name_counts = {},
         _install_root = vim.fs.joinpath(vim.fn.stdpath("data"), "ozone", "_"),
         _dep_names_by_spec = {},
-        _lock_plugins = {},
+        _lock = Lock.default(),
     }, Config)
+end
+
+---@param lock ozone.Lock
+---@return nil
+function Config:set_lock(lock)
+    self._lock = lock
 end
 
 ---@return nil
 function Config:load()
-    self._lock_plugins = lock.read()
+    local lock_path = vim.fs.joinpath(vim.fn.stdpath("config"), "ozone-lock.json")
+    if fs.exists(lock_path) then
+        local data = assert(fs.read_file(lock_path))
+        self:set_lock(Lock.decode(data))
+    else
+        self:set_lock(Lock.default())
+    end
+
     -- TODO: evaluate all build scripts
     require("_build")
 end
@@ -166,7 +181,7 @@ end
 ---@param version? string
 ---@return string? revision
 function Config:_resolve_locked_revision(name, url, version)
-    local lock_plugin = self._lock_plugins[name]
+    local lock_plugin = self._lock.plugins[name]
     if lock_plugin == nil then
         return nil
     end
