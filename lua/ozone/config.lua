@@ -22,6 +22,7 @@ Config.__index = Config
 ---@field kind "git"
 ---@field url string
 ---@field version? string
+---@field revision? string
 
 ---@return self
 function Config.new()
@@ -209,9 +210,19 @@ function Config:add_plugin(name, spec)
             error(("invalid '%s.version' (non-empty string expected)"):format(name))
         end
     end
+    if spec.revision ~= nil then
+        if type(spec.revision) ~= "string" then
+            error(("invalid type of '%s.revision' (string expected, got %s)"):format(name, type(spec.revision)))
+        elseif spec.revision == "" then
+            error(("invalid '%s.revision' (non-empty string expected)"):format(name))
+        end
+    end
 
     if spec.version ~= nil and spec.url == nil then
         error(("'%s.version' requires '%s.url'"):format(name, name))
+    end
+    if spec.revision ~= nil and spec.url == nil then
+        error(("'%s.revision' requires '%s.url'"):format(name, name))
     end
 
     if spec.path == nil and spec.url == nil then
@@ -238,6 +249,7 @@ function Config:add_plugin(name, spec)
                 kind = "git",
                 url = spec.url,
                 version = spec.version,
+                revision = spec.revision,
             },
             deps = {},
         }

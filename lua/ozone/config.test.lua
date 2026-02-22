@@ -40,6 +40,22 @@ runner.add("add_plugin() resolves git specs with default install path", function
     assert(resolved.source.kind == "git")
     assert(resolved.source.url == "https://github.com/author/repo")
     assert(resolved.source.version == "v1.2.3")
+    assert(resolved.source.revision == nil)
+end)
+
+runner.add("add_plugin() resolves git specs with locked revision", function()
+    local config = Config.new()
+
+    local resolved = config:add_plugin("remote_plugin_locked", {
+        url = "https://github.com/author/repo",
+        revision = "0123456789abcdef",
+    })
+
+    assert(resolved.name == "remote_plugin_locked")
+    assert(resolved.source.kind == "git")
+    assert(resolved.source.url == "https://github.com/author/repo")
+    assert(resolved.source.version == nil)
+    assert(resolved.source.revision == "0123456789abcdef")
 end)
 
 runner.add("add_plugin() rejects duplicate plugin names", function()
@@ -65,6 +81,17 @@ runner.add("add_plugin() validates version source requirements", function()
     assert(ok == false)
     assert(type(err) == "string")
     assert(string.match(err, "'version_without_url.version' requires 'version_without_url.url'") ~= nil)
+end)
+
+runner.add("add_plugin() validates revision source requirements", function()
+    local config = Config.new()
+    local ok, err = pcall(config.add_plugin, config, "revision_without_url", {
+        path = vim.fn.stdpath("cache") .. "/plugins/revision_without_url",
+        revision = "0123456789abcdef",
+    })
+    assert(ok == false)
+    assert(type(err) == "string")
+    assert(string.match(err, "'revision_without_url.revision' requires 'revision_without_url.url'") ~= nil)
 end)
 
 runner.add("add_plugin() requires path or url", function()
