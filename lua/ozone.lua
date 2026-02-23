@@ -25,7 +25,7 @@ end
 ---@field path? string
 --- Git repository URL
 ---@field url? string
---- Git ref (branch, tag, or revision)
+--- Git ref (branch, tag, or commit hash)
 ---@field version? string
 --- Plugin names this plugin depends on
 ---@field deps? string[]

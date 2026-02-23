@@ -7,22 +7,22 @@ runner.add("encode() formats lock file deterministically", function()
     first_lockfile.plugins.zebra = {
         url = "https://example.com/zebra",
         version = "v1.0.0",
-        revision = "rev-z",
+        hash = "hash-z",
     }
     first_lockfile.plugins.alpha = {
         url = "https://example.com/alpha",
-        revision = "rev-a",
+        hash = "hash-a",
     }
 
     local second_lockfile = Lockfile.default()
     second_lockfile.plugins.alpha = {
         url = "https://example.com/alpha",
-        revision = "rev-a",
+        hash = "hash-a",
     }
     second_lockfile.plugins.zebra = {
         url = "https://example.com/zebra",
         version = "v1.0.0",
-        revision = "rev-z",
+        hash = "hash-z",
     }
 
     local first = first_lockfile:encode()
@@ -34,12 +34,12 @@ runner.add("encode() formats lock file deterministically", function()
     "alpha": {
       "url": "https://example.com/alpha",
       "version": null,
-      "revision": "rev-a"
+      "hash": "hash-a"
     },
     "zebra": {
       "url": "https://example.com/zebra",
       "version": "v1.0.0",
-      "revision": "rev-z"
+      "hash": "hash-z"
     }
   }
 }
@@ -56,7 +56,7 @@ runner.add("decode() keeps null fields encodable", function()
     "tracked": {
       "url": "https://example.com/tracked",
       "version": null,
-      "revision": "rev-1"
+      "hash": "hash-1"
     }
   }
 }
@@ -72,7 +72,7 @@ runner.add("decode() keeps null fields encodable", function()
     "tracked": {
       "url": "https://example.com/tracked",
       "version": null,
-      "revision": "rev-1"
+      "hash": "hash-1"
     }
   }
 }

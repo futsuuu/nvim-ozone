@@ -24,7 +24,7 @@ end
 ---@param source ozone.Config.PluginSource.Git
 ---@return string? checkout_target
 local function resolve_checkout_target(source)
-    return source.revision or source.version
+    return source.hash or source.version
 end
 
 ---@param path string
@@ -106,34 +106,34 @@ end
 
 ---@param source ozone.Config.PluginSource.Git
 ---@param path string
----@return string? revision
+---@return string? hash
 ---@return ozone.Fetcher.Error? err
-function GitFetcher:resolve_revision(source, path)
-    local revision = nil ---@type string?
-    local revision_err = nil ---@type string?
+function GitFetcher:resolve_hash(source, path)
+    local hash = nil ---@type string?
+    local hash_err = nil ---@type string?
     if source.version then
-        revision, revision_err = git.resolve_version_revision(path, source.version)
+        hash, hash_err = git.resolve_version_hash(path, source.version)
     else
-        revision, revision_err = git.remote_head_revision(path)
+        hash, hash_err = git.remote_head_hash(path)
     end
 
-    if not revision then
-        return nil, fetcher_error("revision_resolution_failed", "failed to resolve revision", revision_err)
+    if not hash then
+        return nil, fetcher_error("hash_resolution_failed", "failed to resolve hash", hash_err)
     end
 
-    return revision, nil
+    return hash, nil
 end
 
 ---@param path string
----@return string? revision
+---@return string? hash
 ---@return ozone.Fetcher.Error? err
-function GitFetcher:revision(path)
-    local revision, revision_err = git.revision(path)
-    if not revision then
-        return nil, fetcher_error("revision_resolution_failed", "failed to resolve revision", revision_err)
+function GitFetcher:hash(path)
+    local hash, hash_err = git.hash(path)
+    if not hash then
+        return nil, fetcher_error("hash_resolution_failed", "failed to resolve hash", hash_err)
     end
 
-    return revision, nil
+    return hash, nil
 end
 
 return GitFetcher

@@ -51,7 +51,7 @@ end
 
 ---@param path string
 ---@param ref string
----@return string? revision
+---@return string? hash
 ---@return string? err
 function M.rev_parse(path, ref)
     local result, system_err = run_system({
@@ -78,34 +78,34 @@ function M.rev_parse(path, ref)
 end
 
 ---@param path string
----@return string? revision
+---@return string? hash
 ---@return string? err
-function M.revision(path)
+function M.hash(path)
     return M.rev_parse(path, "HEAD")
 end
 
 ---@param path string
 ---@param version string
----@return string? revision
+---@return string? hash
 ---@return string? err
-function M.resolve_version_revision(path, version)
-    local revision, rev_parse_err = M.rev_parse(path, version)
-    if revision then
-        return revision, nil
+function M.resolve_version_hash(path, version)
+    local hash, rev_parse_err = M.rev_parse(path, version)
+    if hash then
+        return hash, nil
     end
 
-    revision, rev_parse_err = M.rev_parse(path, "origin/" .. version)
-    if revision then
-        return revision, nil
+    hash, rev_parse_err = M.rev_parse(path, "origin/" .. version)
+    if hash then
+        return hash, nil
     end
 
     return nil, rev_parse_err
 end
 
 ---@param path string
----@return string? revision
+---@return string? hash
 ---@return string? err
-function M.remote_head_revision(path)
+function M.remote_head_hash(path)
     return M.rev_parse(path, "origin/HEAD")
 end
 

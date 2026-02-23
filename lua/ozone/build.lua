@@ -110,17 +110,17 @@ local function resolve_latest_lockfile_plugin(spec)
         return nil, Fetcher.format_error(fetch_err, "fetch failed")
     end
 
-    local revision = nil ---@type string?
-    local revision_err = nil ---@type ozone.Fetcher.Error?
-    revision, revision_err = git_fetcher:resolve_revision(source, spec.path)
-    if not revision then
-        return nil, Fetcher.format_error(revision_err, "failed to resolve revision")
+    local hash = nil ---@type string?
+    local hash_err = nil ---@type ozone.Fetcher.Error?
+    hash, hash_err = git_fetcher:resolve_hash(source, spec.path)
+    if not hash then
+        return nil, Fetcher.format_error(hash_err, "failed to resolve hash")
     end
 
     return {
         url = source.url,
         version = source.version,
-        revision = revision,
+        hash = hash,
     }, nil
 end
 
@@ -144,19 +144,19 @@ function Build:_write_lockfile(config, plugin_names_in_load_order)
         local spec = plugins[name]
         if spec and spec.source.kind == "git" then
             if fs.is_dir(spec.path) then
-                local revision, revision_err = git_fetcher:revision(spec.path)
-                if revision == nil then
+                local hash, hash_err = git_fetcher:hash(spec.path)
+                if hash == nil then
                     self:err(
-                        "plugin %q failed to resolve installed revision at %s: %s",
+                        "plugin %q failed to resolve installed hash at %s: %s",
                         name,
                         spec.path,
-                        Fetcher.format_error(revision_err)
+                        Fetcher.format_error(hash_err)
                     )
                 else
                     lockfile.plugins[name] = {
                         url = spec.source.url,
                         version = spec.source.version,
-                        revision = revision,
+                        hash = hash,
                     }
                 end
             end

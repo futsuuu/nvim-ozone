@@ -26,12 +26,12 @@ Config.__index = Config
 ---@field kind "git"
 ---@field url string
 ---@field version? string
----@field revision? string
+---@field hash? string
 
 ---@class ozone.Config.LockfilePluginSpec
 ---@field url string
 ---@field version? string
----@field revision? string
+---@field hash? string
 
 ---@return self
 function Config.new()
@@ -199,8 +199,8 @@ end
 ---@param name string
 ---@param url string
 ---@param version? string
----@return string? revision
-function Config:_resolve_locked_revision(name, url, version)
+---@return string? hash
+function Config:_resolve_locked_hash(name, url, version)
     local lockfile_plugin = self._lockfile.plugins[name]
     if lockfile_plugin == nil then
         return nil
@@ -209,7 +209,7 @@ function Config:_resolve_locked_revision(name, url, version)
     local is_same_source = lockfile_plugin.url == url
     local is_same_version = lockfile_plugin.version == version
     if is_same_source and is_same_version then
-        return lockfile_plugin.revision
+        return lockfile_plugin.hash
     end
 
     return nil
@@ -306,7 +306,7 @@ function Config:add_plugin(name, spec)
                 kind = "git",
                 url = source_url,
                 version = source_version,
-                revision = self:_resolve_locked_revision(name, source_url, source_version),
+                hash = self:_resolve_locked_hash(name, source_url, source_version),
             },
             deps = {},
         }

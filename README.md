@@ -61,7 +61,7 @@ ozone.add({
 ```
 
 `url` currently supports `git clone` only.
-`version` is optional and is resolved with `git checkout`, so branch names, tags, and revisions can be used.
+`version` is optional and is resolved with `git checkout`, so branch names, tags, and commit hashes can be used.
 `deps` is optional and controls plugin load order.
 Missing dependencies and circular dependencies are reported as warnings, and loading continues with best-effort ordering.
 Invalid plugin specs or install failures are collected and reported together after the build step.
@@ -69,16 +69,16 @@ Invalid plugin specs or install failures are collected and reported together aft
 ### Updating Plugins
 
 nvim-ozone writes a lock file to `stdpath("config")/ozone-lock.json` after each successful build.
-Each git plugin entry stores `url`, optional `version`, and the resolved `revision`.
+Each git plugin entry stores `url`, optional `version`, and the resolved `hash`.
 
-Call `ozone.update()` to fetch all git plugins and update the lock file to the latest revisions:
+Call `ozone.update()` to fetch all git plugins and update the lock file to the latest hashes:
 
 ```lua
 require("ozone").update()
 ```
 
 `ozone.update()` only updates lock data. The actual checkout happens on the next `ozone.run()`.
-When `version` is set on a plugin, `ozone.update()` keeps respecting that ref and updates the locked `revision`.
+When `version` is set on a plugin, `ozone.update()` keeps respecting that ref and updates the locked `hash`.
 
 Plugins removed from your build config are also removed from `ozone-lock.json` on the next build.
 
