@@ -14,11 +14,18 @@ function Fetcher.new(source_kind)
 end
 
 ---@class ozone.Fetcher.Error
----@field code string
+---@field code ozone.Fetcher.ErrorCode
 ---@field message string
 ---@field source_error? string
 
----@param code string
+---@alias ozone.Fetcher.ErrorCode
+---| "checkout_failed"
+---| "clone_failed"
+---| "fetch_failed"
+---| "hash_resolution_failed"
+---| "invalid_install_path"
+
+---@param code ozone.Fetcher.ErrorCode
 ---@param message string
 ---@param source_error? string
 ---@return ozone.Fetcher.Error
