@@ -13,14 +13,6 @@ function GitFetcher.new()
     return setmetatable({}, GitFetcher)
 end
 
----@param code string
----@param message string
----@param source_error? string
----@return ozone.Fetcher.Error
-local function fetcher_error(code, message, source_error)
-    return Fetcher.error(code, message, source_error)
-end
-
 ---@param source ozone.Config.PluginSource.Git
 ---@return string? checkout_target
 local function resolve_checkout_target(source)
@@ -39,7 +31,7 @@ local function validate_install_path(path)
         return true, nil
     end
 
-    return nil, fetcher_error("invalid_install_path", ("install path exists and is not a directory: %s"):format(path))
+    return nil, Fetcher.error("invalid_install_path", ("install path exists and is not a directory: %s"):format(path))
 end
 
 ---@param source ozone.Config.PluginSource.Git
@@ -55,7 +47,7 @@ function GitFetcher:install(source, path)
     if not fs.exists(path) then
         local clone_success, clone_err = git.clone(source.url, path)
         if not clone_success then
-            return nil, fetcher_error("clone_failed", "clone failed", clone_err)
+            return nil, Fetcher.error("clone_failed", "clone failed", clone_err)
         end
     end
 
@@ -63,7 +55,7 @@ function GitFetcher:install(source, path)
     if checkout_target then
         local checkout_success, checkout_err = git.checkout(path, checkout_target)
         if not checkout_success then
-            return nil, fetcher_error("checkout_failed", "checkout failed", checkout_err)
+            return nil, Fetcher.error("checkout_failed", "checkout failed", checkout_err)
         end
     end
 
@@ -86,7 +78,7 @@ function GitFetcher:ensure_cloned(source, path)
 
     local clone_success, clone_err = git.clone(source.url, path)
     if not clone_success then
-        return nil, fetcher_error("clone_failed", "clone failed", clone_err)
+        return nil, Fetcher.error("clone_failed", "clone failed", clone_err)
     end
 
     return true, nil
@@ -98,7 +90,7 @@ end
 function GitFetcher:fetch(path)
     local fetch_success, fetch_err = git.fetch(path)
     if not fetch_success then
-        return nil, fetcher_error("fetch_failed", "fetch failed", fetch_err)
+        return nil, Fetcher.error("fetch_failed", "fetch failed", fetch_err)
     end
 
     return true, nil
@@ -118,7 +110,7 @@ function GitFetcher:resolve_hash(source, path)
     end
 
     if not hash then
-        return nil, fetcher_error("hash_resolution_failed", "failed to resolve hash", hash_err)
+        return nil, Fetcher.error("hash_resolution_failed", "failed to resolve hash", hash_err)
     end
 
     return hash, nil
@@ -130,7 +122,7 @@ end
 function GitFetcher:hash(path)
     local hash, hash_err = git.hash(path)
     if not hash then
-        return nil, fetcher_error("hash_resolution_failed", "failed to resolve hash", hash_err)
+        return nil, Fetcher.error("hash_resolution_failed", "failed to resolve hash", hash_err)
     end
 
     return hash, nil
