@@ -1,5 +1,3 @@
-local fs = require("ozone.x.fs")
-
 local Lock = require("ozone.lock")
 
 ---@class ozone.Config
@@ -8,6 +6,7 @@ local Lock = require("ozone.lock")
 ---@field private _install_root string
 ---@field private _dep_names_by_spec table<ozone.Config.PluginSpec, string[]>
 ---@field private _lock ozone.Lock
+---@field private _lock_path string
 local Config = {}
 ---@private
 Config.__index = Config
@@ -42,7 +41,16 @@ function Config.new()
         _install_root = vim.fs.joinpath(vim.fn.stdpath("data"), "ozone", "_"),
         _dep_names_by_spec = {},
         _lock = Lock.default(),
+        _lock_path = vim.fs.joinpath(vim.fn.stdpath("config"), "ozone-lock.json"),
     }, Config)
+end
+
+---@return nil
+function Config:load()
+    self:set_lock(self:read_lock_file())
+
+    -- TODO: evaluate all build scripts
+    require("_build")
 end
 
 ---@param lock ozone.Lock
@@ -51,18 +59,20 @@ function Config:set_lock(lock)
     self._lock = lock
 end
 
----@return nil
-function Config:load()
-    local lock_path = vim.fs.joinpath(vim.fn.stdpath("config"), "ozone-lock.json")
-    if fs.exists(lock_path) then
-        local data = assert(fs.read_file(lock_path))
-        self:set_lock(Lock.decode(data))
-    else
-        self:set_lock(Lock.default())
-    end
+---@return ozone.Lock
+function Config:read_lock_file()
+    return Lock.read(self._lock_path)
+end
 
-    -- TODO: evaluate all build scripts
-    require("_build")
+---@param lock ozone.Lock
+---@return boolean? success
+---@return string? err
+function Config:write_lock_file(lock)
+    local wrote, write_err = lock:write(self._lock_path)
+    if wrote then
+        self:set_lock(lock)
+    end
+    return wrote, write_err
 end
 
 ---@return table<string, ozone.Config.PluginSpec>

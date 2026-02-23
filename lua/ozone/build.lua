@@ -6,8 +6,6 @@ local Lock = require("ozone.lock")
 local Script = require("ozone.script")
 local git = require("ozone.git")
 
-local LOCK_PATH = vim.fs.joinpath(vim.fn.stdpath("config"), "ozone-lock.json")
-
 ---@class ozone.Build
 ---@field private _errors string[]
 ---@field private _output_path string
@@ -190,7 +188,7 @@ function Build:_write_lock_file(config, plugin_names_in_load_order)
         end
     end
 
-    local wrote, write_err = lock:write(LOCK_PATH)
+    local wrote, write_err = config:write_lock_file(lock)
     if not wrote then
         self:err("%s", write_err or "failed to write lock file")
     end
@@ -203,7 +201,7 @@ function Build:update_lock_file(config)
     local plugin_names_in_load_order, warnings = config:get_plugin_names_in_load_order()
     report_warnings(self, warnings)
 
-    local lock = Lock.read(LOCK_PATH)
+    local lock = config:read_lock_file()
     for _, name in ipairs(plugin_names_in_load_order) do
         local spec = plugins[name]
         if spec and spec.source.kind == "git" then
@@ -216,7 +214,7 @@ function Build:update_lock_file(config)
         end
     end
 
-    local wrote, write_err = lock:write(LOCK_PATH)
+    local wrote, write_err = config:write_lock_file(lock)
     if not wrote then
         self:err("%s", write_err or "failed to write lock file")
     end
