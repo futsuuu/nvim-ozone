@@ -2,9 +2,12 @@ local Queue = require("ozone.x.queue")
 local coro = require("ozone.x.coro")
 local fs = require("ozone.x.fs")
 
+local Fetcher = require("ozone.fetcher")
+local GitFetcher = require("ozone.fetcher.git")
 local Lockfile = require("ozone.lockfile")
 local Script = require("ozone.script")
-local git = require("ozone.git")
+
+local git_fetcher = GitFetcher.new()
 
 ---@class ozone.Build
 ---@field private _errors string[]
@@ -58,44 +61,16 @@ function Build:clear_errors()
     self._errors = {}
 end
 
----@param source ozone.Config.PluginSource.Git
----@return string? checkout_target
-local function resolve_checkout_target(source)
-    return source.revision or source.version
-end
-
 ---@param spec ozone.Config.PluginSpec
 local function install_git_plugin(spec)
     local source = spec.source
     if source.kind ~= "git" then
         return
     end
-    if fs.exists(spec.path) then
-        if fs.is_dir(spec.path) then
-            local checkout_target = resolve_checkout_target(source)
-            if checkout_target then
-                local checkout_success, checkout_err = git.checkout(spec.path, checkout_target)
-                if not checkout_success then
-                    error(checkout_err or "checkout failed", 0)
-                end
-            end
-            return
-        end
-        error(("install path exists and is not a directory: %s"):format(spec.path))
-    end
 
-    -- `git clone` can create missing parent directories recursively for destination paths
-    local clone_success, clone_err = git.clone(source.url, spec.path)
-    if not clone_success then
-        error(clone_err or "clone failed", 0)
-    end
-
-    local checkout_target = resolve_checkout_target(source)
-    if checkout_target then
-        local checkout_success, checkout_err = git.checkout(spec.path, checkout_target)
-        if not checkout_success then
-            error(checkout_err or "checkout failed", 0)
-        end
+    local installed, install_err = git_fetcher:install(source, spec.path)
+    if not installed then
+        error(Fetcher.format_error(install_err, "install failed"), 0)
     end
 end
 
@@ -108,16 +83,9 @@ local function clone_git_plugin_if_needed(spec)
         return true, nil
     end
 
-    if fs.exists(spec.path) then
-        if fs.is_dir(spec.path) then
-            return true, nil
-        end
-        return nil, ("install path exists and is not a directory: %s"):format(spec.path)
-    end
-
-    local clone_success, clone_err = git.clone(source.url, spec.path)
-    if not clone_success then
-        return nil, clone_err or "clone failed"
+    local cloned, clone_err = git_fetcher:ensure_cloned(source, spec.path)
+    if not cloned then
+        return nil, Fetcher.format_error(clone_err, "clone failed")
     end
 
     return true, nil
@@ -137,20 +105,16 @@ local function resolve_latest_lockfile_plugin(spec)
         return nil, clone_err
     end
 
-    local fetched, fetch_err = git.fetch(spec.path)
+    local fetched, fetch_err = git_fetcher:fetch(spec.path)
     if not fetched then
-        return nil, fetch_err
+        return nil, Fetcher.format_error(fetch_err, "fetch failed")
     end
 
     local revision = nil ---@type string?
-    local revision_err = nil ---@type string?
-    if source.version then
-        revision, revision_err = git.resolve_version_revision(spec.path, source.version)
-    else
-        revision, revision_err = git.remote_head_revision(spec.path)
-    end
+    local revision_err = nil ---@type ozone.Fetcher.Error?
+    revision, revision_err = git_fetcher:resolve_revision(source, spec.path)
     if not revision then
-        return nil, revision_err
+        return nil, Fetcher.format_error(revision_err, "failed to resolve revision")
     end
 
     return {
@@ -180,13 +144,13 @@ function Build:_write_lockfile(config, plugin_names_in_load_order)
         local spec = plugins[name]
         if spec and spec.source.kind == "git" then
             if fs.is_dir(spec.path) then
-                local revision, revision_err = git.revision(spec.path)
-                if not revision then
+                local revision, revision_err = git_fetcher:revision(spec.path)
+                if revision == nil then
                     self:err(
                         "plugin %q failed to resolve installed revision at %s: %s",
                         name,
                         spec.path,
-                        revision_err or "unknown error"
+                        Fetcher.format_error(revision_err)
                     )
                 else
                     lockfile.plugins[name] = {
