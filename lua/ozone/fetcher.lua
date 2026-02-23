@@ -3,6 +3,16 @@ local Fetcher = {}
 ---@private
 Fetcher.__index = Fetcher
 
+---@param source_kind string
+---@return ozone.Fetcher
+function Fetcher.new(source_kind)
+    if source_kind == "git" then
+        return require("ozone.fetcher.git").new()
+    end
+
+    error(("unsupported source kind: %s"):format(source_kind))
+end
+
 ---@class ozone.Fetcher.Error
 ---@field code string
 ---@field message string
@@ -33,17 +43,6 @@ function Fetcher.format_error(err, fallback)
     end
 
     return err.message
-end
-
----@param source_kind string
----@return ozone.Fetcher
-function Fetcher.new(source_kind)
-    if source_kind == "git" then
-        local GitFetcher = require("ozone.fetcher.git")
-        return GitFetcher.new()
-    end
-
-    error(("unsupported source kind: %s"):format(source_kind))
 end
 
 return Fetcher
