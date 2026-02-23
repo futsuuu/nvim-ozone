@@ -3,24 +3,24 @@
 ## Code Style
 
 - Run `mise run check` during development and fix problems as you go.
-- Write type annotations for all function arguments and return values by default.
-    - You don't need to write annotations for items with types already determined, such as callback functions or overridden methods.
+- Write type annotations for all function arguments and return values, except for items with types already determined, such as callback functions or overridden methods.
 - Do not overload operators.
 - Do not use enum tables (use string literals instead).
 - Call `require()` at the top level, except when avoiding circular dependencies.
-- Do not define aliases for omitting field access at the top level of a module, except for `ffi.C`. \
+- Do not define aliases for omitting field access, except for `ffi.C`. \
     Prefer
     ```lua
     -- ...
-    local function foo(path)
-        return vim.fs.joinpath(vim.fs.dirname(path), vim.fs.basename(path))
+    local function foo(obj)
+        return vim.fs.joinpath(vim.fs.dirname(obj.path), vim.fs.basename(obj.path))
     end
     ```
     Over
     ```lua
     local fs = vim.fs
     -- ...
-    local function foo(path)
+    local function foo(obj)
+        local path = obj.path
         return fs.joinpath(fs.dirname(path), fs.basename(path))
     end
     ```
