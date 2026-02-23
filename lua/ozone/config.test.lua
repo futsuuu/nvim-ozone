@@ -1,7 +1,7 @@
 local runner = require("test.runner")
 
 local Config = require("ozone.config")
-local Lock = require("ozone.lock")
+local Lockfile = require("ozone.lockfile")
 
 ---@param values string[]
 ---@param expected string
@@ -71,13 +71,13 @@ end)
 
 runner.add("add_plugin() applies locked revision from lock file data", function()
     local config = Config.new()
-    local lock = Lock.default()
-    lock.plugins.revision_plugin = {
+    local lockfile = Lockfile.default()
+    lockfile.plugins.revision_plugin = {
         url = "https://github.com/author/repo",
         version = "v1.2.3",
         revision = "0123456789abcdef",
     }
-    config:set_lock(lock)
+    config:set_lockfile(lockfile)
 
     local resolved = config:add_plugin("revision_plugin", {
         url = "https://github.com/author/repo",

@@ -2,34 +2,34 @@ local buffer = require("string.buffer")
 
 local fs = require("ozone.x.fs")
 
----@class ozone.Lock
----@field plugins table<string, ozone.Config.LockPluginSpec>
-local Lock = {}
+---@class ozone.Lockfile
+---@field plugins table<string, ozone.Config.LockfilePluginSpec>
+local Lockfile = {}
 ---@private
-Lock.__index = Lock
+Lockfile.__index = Lockfile
 
----@return ozone.Lock
-function Lock.default()
+---@return ozone.Lockfile
+function Lockfile.default()
     return setmetatable({
         plugins = {},
-    }, Lock)
+    }, Lockfile)
 end
 
 ---@param path string
----@return ozone.Lock
-function Lock.read(path)
+---@return ozone.Lockfile
+function Lockfile.read(path)
     if not fs.exists(path) then
-        return Lock.default()
+        return Lockfile.default()
     end
     local data = assert(fs.read_file(path))
-    return Lock.decode(data)
+    return Lockfile.decode(data)
 end
 
 ---@param path string
 ---@return boolean? success, string? err
-function Lock:write(path)
-    local lock_dir = assert(vim.fs.dirname(path))
-    local created, create_dir_err = fs.create_dir_all(lock_dir)
+function Lockfile:write(path)
+    local lockfile_dir = assert(vim.fs.dirname(path))
+    local created, create_dir_err = fs.create_dir_all(lockfile_dir)
     if not created then
         return nil, create_dir_err
     end
@@ -37,13 +37,13 @@ function Lock:write(path)
 end
 
 ---@param data string
----@return ozone.Lock
-function Lock.decode(data)
-    local decoded = vim.json.decode(data, { luanil = { object = true } }) --[[@as ozone.Lock]]
+---@return ozone.Lockfile
+function Lockfile.decode(data)
+    local decoded = vim.json.decode(data, { luanil = { object = true } }) --[[@as ozone.Lockfile]]
     if decoded.plugins == nil then
         decoded.plugins = {}
     end
-    return setmetatable(decoded, Lock)
+    return setmetatable(decoded, Lockfile)
 end
 
 ---@generic K
@@ -60,7 +60,7 @@ local function sorted_keys(t)
 end
 
 ---@return string
-function Lock:encode()
+function Lockfile:encode()
     local names = sorted_keys(self.plugins)
     if #names == 0 then
         return '{ "plugins": {} }\n'
@@ -83,4 +83,4 @@ function Lock:encode()
     return buf:tostring()
 end
 
-return Lock
+return Lockfile

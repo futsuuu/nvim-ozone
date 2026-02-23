@@ -72,7 +72,7 @@ function ozone.update()
     coro.wait(function()
         build_instance:clear_errors()
         config:load()
-        build_instance:update_lock_file(config)
+        build_instance:update_lockfile(config)
         report_build_errors()
     end)
 end

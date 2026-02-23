@@ -1,32 +1,32 @@
 local runner = require("test.runner")
 
-local Lock = require("ozone.lock")
+local Lockfile = require("ozone.lockfile")
 
 runner.add("encode() formats lock file deterministically", function()
-    local first_lock = Lock.default()
-    first_lock.plugins.zebra = {
+    local first_lockfile = Lockfile.default()
+    first_lockfile.plugins.zebra = {
         url = "https://example.com/zebra",
         version = "v1.0.0",
         revision = "rev-z",
     }
-    first_lock.plugins.alpha = {
+    first_lockfile.plugins.alpha = {
         url = "https://example.com/alpha",
         revision = "rev-a",
     }
 
-    local second_lock = Lock.default()
-    second_lock.plugins.alpha = {
+    local second_lockfile = Lockfile.default()
+    second_lockfile.plugins.alpha = {
         url = "https://example.com/alpha",
         revision = "rev-a",
     }
-    second_lock.plugins.zebra = {
+    second_lockfile.plugins.zebra = {
         url = "https://example.com/zebra",
         version = "v1.0.0",
         revision = "rev-z",
     }
 
-    local first = first_lock:encode()
-    local second = second_lock:encode()
+    local first = first_lockfile:encode()
+    local second = second_lockfile:encode()
 
     local expected = [[
 {
@@ -62,7 +62,7 @@ runner.add("decode() keeps null fields encodable", function()
 }
 ]]
 
-    local decoded = Lock.decode(before)
+    local decoded = Lockfile.decode(before)
     assert(decoded.plugins.tracked.version == nil)
 
     local after = decoded:encode()

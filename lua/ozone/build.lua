@@ -2,7 +2,7 @@ local Queue = require("ozone.x.queue")
 local coro = require("ozone.x.coro")
 local fs = require("ozone.x.fs")
 
-local Lock = require("ozone.lock")
+local Lockfile = require("ozone.lockfile")
 local Script = require("ozone.script")
 local git = require("ozone.git")
 
@@ -113,9 +113,9 @@ local function clone_git_plugin_if_needed(spec)
 end
 
 ---@param spec ozone.Config.PluginSpec
----@return ozone.Config.LockPluginSpec? lock_spec
+---@return ozone.Config.LockfilePluginSpec? lockfile_spec
 ---@return string? err
-local function resolve_latest_lock_plugin(spec)
+local function resolve_latest_lockfile_plugin(spec)
     local source = spec.source
     if source.kind ~= "git" then
         return nil, nil
@@ -161,9 +161,9 @@ end
 ---@param config ozone.Config
 ---@param plugin_names_in_load_order string[]
 ---@return nil
-function Build:_write_lock_file(config, plugin_names_in_load_order)
+function Build:_write_lockfile(config, plugin_names_in_load_order)
     local plugins = config:get_plugins()
-    local lock = Lock.default()
+    local lockfile = Lockfile.default()
 
     for _, name in ipairs(plugin_names_in_load_order) do
         local spec = plugins[name]
@@ -178,7 +178,7 @@ function Build:_write_lock_file(config, plugin_names_in_load_order)
                         revision_err or "unknown error"
                     )
                 else
-                    lock.plugins[name] = {
+                    lockfile.plugins[name] = {
                         url = spec.source.url,
                         version = spec.source.version,
                         revision = revision,
@@ -188,7 +188,7 @@ function Build:_write_lock_file(config, plugin_names_in_load_order)
         end
     end
 
-    local wrote, write_err = config:write_lock_file(lock)
+    local wrote, write_err = config:write_lockfile(lockfile)
     if not wrote then
         self:err("%s", write_err or "failed to write lock file")
     end
@@ -196,25 +196,25 @@ end
 
 ---@param config ozone.Config
 ---@return nil
-function Build:update_lock_file(config)
+function Build:update_lockfile(config)
     local plugins = config:get_plugins()
     local plugin_names_in_load_order, warnings = config:get_plugin_names_in_load_order()
     report_warnings(self, warnings)
 
-    local lock = config:read_lock_file()
+    local lockfile = config:read_lockfile()
     for _, name in ipairs(plugin_names_in_load_order) do
         local spec = plugins[name]
         if spec and spec.source.kind == "git" then
-            local lock_spec, lock_plugin_err = resolve_latest_lock_plugin(spec)
-            if lock_spec then
-                lock.plugins[name] = lock_spec
+            local lockfile_spec, lockfile_plugin_err = resolve_latest_lockfile_plugin(spec)
+            if lockfile_spec then
+                lockfile.plugins[name] = lockfile_spec
             else
-                self:err("plugin %q failed to update lock data: %s", name, lock_plugin_err or "unknown error")
+                self:err("plugin %q failed to update lock data: %s", name, lockfile_plugin_err or "unknown error")
             end
         end
     end
 
-    local wrote, write_err = config:write_lock_file(lock)
+    local wrote, write_err = config:write_lockfile(lockfile)
     if not wrote then
         self:err("%s", write_err or "failed to write lock file")
     end
@@ -334,7 +334,7 @@ function Build:generate_script(config)
         return nil
     end
 
-    self:_write_lock_file(config, plugin_names_in_load_order)
+    self:_write_lockfile(config, plugin_names_in_load_order)
 
     return self._output_path
 end

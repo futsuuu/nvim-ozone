@@ -1,12 +1,12 @@
-local Lock = require("ozone.lock")
+local Lockfile = require("ozone.lockfile")
 
 ---@class ozone.Config
 ---@field private _plugins table<string, ozone.Config.PluginSpec>
 ---@field private _plugin_name_counts table<string, integer>
 ---@field private _install_root string
 ---@field private _dep_names_by_spec table<ozone.Config.PluginSpec, string[]>
----@field private _lock ozone.Lock
----@field private _lock_path string
+---@field private _lockfile ozone.Lockfile
+---@field private _lockfile_path string
 local Config = {}
 ---@private
 Config.__index = Config
@@ -28,7 +28,7 @@ Config.__index = Config
 ---@field version? string
 ---@field revision? string
 
----@class ozone.Config.LockPluginSpec
+---@class ozone.Config.LockfilePluginSpec
 ---@field url string
 ---@field version? string
 ---@field revision? string
@@ -40,37 +40,37 @@ function Config.new()
         _plugin_name_counts = {},
         _install_root = vim.fs.joinpath(vim.fn.stdpath("data"), "ozone", "_"),
         _dep_names_by_spec = {},
-        _lock = Lock.default(),
-        _lock_path = vim.fs.joinpath(vim.fn.stdpath("config"), "ozone-lock.json"),
+        _lockfile = Lockfile.default(),
+        _lockfile_path = vim.fs.joinpath(vim.fn.stdpath("config"), "ozone-lock.json"),
     }, Config)
 end
 
 ---@return nil
 function Config:load()
-    self:set_lock(self:read_lock_file())
+    self:set_lockfile(self:read_lockfile())
 
     -- TODO: evaluate all build scripts
     require("_build")
 end
 
----@param lock ozone.Lock
+---@param lockfile ozone.Lockfile
 ---@return nil
-function Config:set_lock(lock)
-    self._lock = lock
+function Config:set_lockfile(lockfile)
+    self._lockfile = lockfile
 end
 
----@return ozone.Lock
-function Config:read_lock_file()
-    return Lock.read(self._lock_path)
+---@return ozone.Lockfile
+function Config:read_lockfile()
+    return Lockfile.read(self._lockfile_path)
 end
 
----@param lock ozone.Lock
+---@param lockfile ozone.Lockfile
 ---@return boolean? success
 ---@return string? err
-function Config:write_lock_file(lock)
-    local wrote, write_err = lock:write(self._lock_path)
+function Config:write_lockfile(lockfile)
+    local wrote, write_err = lockfile:write(self._lockfile_path)
     if wrote then
-        self:set_lock(lock)
+        self:set_lockfile(lockfile)
     end
     return wrote, write_err
 end
@@ -191,15 +191,15 @@ end
 ---@param version? string
 ---@return string? revision
 function Config:_resolve_locked_revision(name, url, version)
-    local lock_plugin = self._lock.plugins[name]
-    if lock_plugin == nil then
+    local lockfile_plugin = self._lockfile.plugins[name]
+    if lockfile_plugin == nil then
         return nil
     end
 
-    local is_same_source = lock_plugin.url == url
-    local is_same_version = lock_plugin.version == version
+    local is_same_source = lockfile_plugin.url == url
+    local is_same_version = lockfile_plugin.version == version
     if is_same_source and is_same_version then
-        return lock_plugin.revision
+        return lockfile_plugin.revision
     end
 
     return nil
