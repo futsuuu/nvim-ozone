@@ -110,8 +110,9 @@ function M.remove_dir_all(path)
         end
     end
     while not queue:is_completed() do
-        local _, success, err = assert(queue:get())
-        if not success then
+        local _, co_success, success_or_err, err = queue:get()
+        assert(co_success, success_or_err)
+        if not success_or_err then
             return nil, err
         end
     end

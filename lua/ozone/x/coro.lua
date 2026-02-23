@@ -2,12 +2,19 @@ local coro = {}
 
 ---@class ozone.x.coro.Context
 --- The parent coroutine, or `nil` if the parent is the main thread.
----@field parent? thread
----@field callback fun(success: boolean, ...: any)
----@field transparent_xpcall boolean
----@field traceback string
+---@field public parent? thread
+--- Arbitrary data.
+---@field public data any
+---@field package _callback fun(cx: ozone.x.coro.Context, success: boolean, ...: any)
+---@field package _transparent_xpcall boolean
+---@field package _traceback string
 ---@type table<thread, ozone.x.coro.Context>
 local managed = setmetatable({}, { __mode = "k" })
+
+---@return ozone.x.coro.Context?
+function coro.context()
+    return managed[coroutine.running()]
+end
 
 --- A wrapper of `debug.traceback()`.
 ---@overload fun(message: any, level?: integer): message: any
@@ -27,7 +34,7 @@ function coro.traceback(...)
     while co do
         local cx = managed[co] ---@type ozone.x.coro.Context?
         if cx then
-            traceback = ("%s\n\t^-- %s%s"):format(traceback, coroutine.status(co), cx.traceback)
+            traceback = ("%s\n\t^-- %s%s"):format(traceback, coroutine.status(co), cx._traceback)
             co = cx.parent
         else
             traceback = ("%s\n\t^-- %s (unmanaged)\n\t..."):format(traceback, coroutine.status(co))
@@ -59,7 +66,7 @@ local function handle_resume_result(co, resume_success, ...)
     end
     local cx = managed[co]
     if cx then
-        schedule(cx.callback, resume_success, ...)
+        schedule(cx._callback, cx, resume_success, ...)
     end
 end
 
@@ -68,7 +75,7 @@ end
 ---
 --- The variadic arguments can be used to avoid function creation for a
 --- performance-critical area.
----@param callback fun(success: boolean, ...: any)
+---@param callback fun(cx: ozone.x.coro.Context, success: boolean, ...: any)
 ---@param fn async fun(...): ...: any
 ---@param ... any additional arguments for `fn`
 ---@return thread
@@ -76,9 +83,9 @@ function coro.pspawn(callback, fn, ...)
     local co = coroutine.create(fn)
     managed[co] = {
         parent = coroutine.running(),
-        callback = callback,
-        transparent_xpcall = false,
-        traceback = debug.traceback("", 2):sub(#"\nstack traceback:" + 1),
+        _callback = callback,
+        _transparent_xpcall = false,
+        _traceback = debug.traceback("", 2):sub(#"\nstack traceback:" + 1),
     }
     handle_resume_result(co, coroutine.resume(co, ...))
     return co
@@ -97,7 +104,7 @@ local function handle_resume_result_of_xpcall(co, resume_success, second, ...)
     local xpcall_success = second ---@type boolean
     local cx = managed[co]
     if cx then
-        schedule(cx.callback, xpcall_success, ...)
+        schedule(cx._callback, cx, xpcall_success, ...)
     end
 end
 
@@ -106,7 +113,7 @@ end
 ---
 --- The variadic arguments can be used to avoid function creation for a
 --- performance-critical area.
----@param callback fun(success: boolean, ...: any)
+---@param callback fun(cx: ozone.x.coro.Context, success: boolean, ...: any)
 ---@param fn async fun(...): ...: any
 ---@param message_handler fun(message: any): any
 ---@param ... any additional arguments for `fn`
@@ -115,19 +122,20 @@ function coro.xpspawn(callback, fn, message_handler, ...)
     local co = coroutine.create(xpcall)
     managed[co] = {
         parent = coroutine.running(),
-        callback = callback,
-        transparent_xpcall = true,
-        traceback = debug.traceback("", 2):sub(#"\nstack traceback:" + 1),
+        _callback = callback,
+        _transparent_xpcall = true,
+        _traceback = debug.traceback("", 2):sub(#"\nstack traceback:" + 1),
     }
     handle_resume_result_of_xpcall(co, coroutine.resume(co, fn, message_handler, ...))
     return co
 end
 
 do
+    ---@param _cx ozone.x.coro.Context
     ---@param success boolean
     ---@param ... any
     ---@return nil
-    local function default_callback(success, ...)
+    local function default_callback(_cx, success, ...)
         if not success then
             local err = ...
             error(type(err) == "string" and setmetatable({}, {
@@ -156,7 +164,7 @@ do
     ---@return nil
     local function resume(co, ...)
         local cx = managed[co]
-        if cx and cx.transparent_xpcall then
+        if cx and cx._transparent_xpcall then
             handle_resume_result_of_xpcall(co, coroutine.resume(co, ...))
         else
             handle_resume_result(co, coroutine.resume(co, ...))
@@ -191,7 +199,7 @@ end
 ---@return any ...
 function coro.wait(fn, ...)
     local result = nil ---@type table?
-    local co = coro.xpspawn(function(...)
+    local co = coro.xpspawn(function(_cx, ...)
         result = { [0] = select("#", ...), ... }
     end, fn, coro.traceback, ...)
     vim.wait(2 ^ 20, function()

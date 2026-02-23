@@ -212,14 +212,8 @@ function Build:update_lockfile(config)
     for _, name in ipairs(plugin_names_in_load_order) do
         local spec = plugins[name]
         if spec and spec.source.kind == "git" then
-            local callback = queue:callback()
-            coro.pspawn(function(success, ...)
-                if success then
-                    callback(true, ...)
-                else
-                    callback(false, ("plugin %q %s"):format(name, ...))
-                end
-            end, function()
+            coro.pspawn(queue:callback(), function()
+                assert(coro.context()).data = name
                 local lockfile_spec, lockfile_plugin_err = resolve_latest_lockfile_plugin(spec)
                 return {
                     name = name,
@@ -231,9 +225,9 @@ function Build:update_lockfile(config)
     end
 
     while not queue:is_completed() do
-        local co_success, result_or_err = queue:get()
+        local cx, co_success, result_or_err = queue:get()
         if not co_success then
-            self:err("%s", result_or_err or "unknown error")
+            self:err("plugin %q %s", cx.data, result_or_err or "unknown error")
         else
             local result = result_or_err ---@type ozone.Build.LockfileUpdateResult
             if result.lockfile_spec then
@@ -277,14 +271,8 @@ function Build:generate_script(config)
     local plugins = config:get_plugins()
 
     for _, spec in pairs(plugins) do
-        local callback = queue:callback()
-        coro.pspawn(function(success, ...)
-            if success then
-                callback(true, ...)
-            else
-                callback(false, ("plugin %q %s"):format(spec.name, ...))
-            end
-        end, function()
+        coro.pspawn(queue:callback(), function()
+            assert(coro.context()).data = spec.name
             self:_install_plugin(spec)
             local path_is_dir = fs.is_dir(spec.path)
             local has_after_dir = path_is_dir and fs.is_dir(spec.path .. "/after") or false
@@ -299,9 +287,9 @@ function Build:generate_script(config)
     local results = {} ---@type table<string, ozone.Build.PluginBuildResult>
 
     while not queue:is_completed() do
-        local co_success, result_or_err = queue:get()
+        local cx, co_success, result_or_err = queue:get()
         if not co_success then
-            self:err("%s", result_or_err or "unknown error")
+            self:err("plugin %q %s", cx.data, result_or_err or "unknown error")
         else
             local result = result_or_err ---@type ozone.Build.PluginBuildResult
             results[result.spec.name] = result
