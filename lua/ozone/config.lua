@@ -1,8 +1,12 @@
+local Lockfile = require("ozone.lockfile")
+
 ---@class ozone.Config
 ---@field private _plugins table<string, ozone.Config.PluginSpec>
 ---@field private _plugin_name_counts table<string, integer>
 ---@field private _install_root string
 ---@field private _dep_names_by_spec table<ozone.Config.PluginSpec, string[]>
+---@field private _lockfile ozone.Lockfile
+---@field private _lockfile_path string
 local Config = {}
 ---@private
 Config.__index = Config
@@ -22,6 +26,12 @@ Config.__index = Config
 ---@field kind "git"
 ---@field url string
 ---@field version? string
+---@field revision? string
+
+---@class ozone.Config.LockfilePluginSpec
+---@field url string
+---@field version? string
+---@field revision? string
 
 ---@return self
 function Config.new()
@@ -30,13 +40,39 @@ function Config.new()
         _plugin_name_counts = {},
         _install_root = vim.fs.joinpath(vim.fn.stdpath("data"), "ozone", "_"),
         _dep_names_by_spec = {},
+        _lockfile = Lockfile.default(),
+        _lockfile_path = vim.fs.joinpath(vim.fn.stdpath("config"), "ozone-lock.json"),
     }, Config)
 end
 
 ---@return nil
 function Config:load()
+    self:set_lockfile(self:read_lockfile())
+
     -- TODO: evaluate all build scripts
     require("_build")
+end
+
+---@param lockfile ozone.Lockfile
+---@return nil
+function Config:set_lockfile(lockfile)
+    self._lockfile = lockfile
+end
+
+---@return ozone.Lockfile
+function Config:read_lockfile()
+    return Lockfile.read(self._lockfile_path)
+end
+
+---@param lockfile ozone.Lockfile
+---@return boolean? success
+---@return string? err
+function Config:write_lockfile(lockfile)
+    local wrote, write_err = lockfile:write(self._lockfile_path)
+    if wrote then
+        self:set_lockfile(lockfile)
+    end
+    return wrote, write_err
 end
 
 ---@return table<string, ozone.Config.PluginSpec>
@@ -149,6 +185,26 @@ function Config:_default_plugin_path(name)
     return vim.fs.joinpath(self._install_root, name)
 end
 
+---@private
+---@param name string
+---@param url string
+---@param version? string
+---@return string? revision
+function Config:_resolve_locked_revision(name, url, version)
+    local lockfile_plugin = self._lockfile.plugins[name]
+    if lockfile_plugin == nil then
+        return nil
+    end
+
+    local is_same_source = lockfile_plugin.url == url
+    local is_same_version = lockfile_plugin.version == version
+    if is_same_source and is_same_version then
+        return lockfile_plugin.revision
+    end
+
+    return nil
+end
+
 ---@param name string
 ---@param spec ozone.PluginSpec
 ---@return ozone.Config.PluginSpec
@@ -231,13 +287,16 @@ function Config:add_plugin(name, spec)
 
     local resolved_spec = nil ---@type ozone.Config.PluginSpec?
     if spec.url then
+        local source_url = assert(spec.url)
+        local source_version = spec.version
         resolved_spec = {
             name = name,
             path = spec.path or self:_default_plugin_path(name),
             source = {
                 kind = "git",
-                url = spec.url,
-                version = spec.version,
+                url = source_url,
+                version = source_version,
+                revision = self:_resolve_locked_revision(name, source_url, source_version),
             },
             deps = {},
         }

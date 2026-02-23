@@ -2,6 +2,7 @@ local Queue = require("ozone.x.queue")
 local coro = require("ozone.x.coro")
 local fs = require("ozone.x.fs")
 
+local Lockfile = require("ozone.lockfile")
 local Script = require("ozone.script")
 local git = require("ozone.git")
 
@@ -16,6 +17,11 @@ Build.__index = Build
 ---@field spec ozone.Config.PluginSpec
 ---@field path_is_dir boolean
 ---@field has_after_dir boolean
+
+---@class ozone.Build.LockfileUpdateResult
+---@field name string
+---@field lockfile_spec ozone.Config.LockfilePluginSpec?
+---@field err string?
 
 ---@return self
 function Build.new()
@@ -41,6 +47,17 @@ function Build:get_errors()
     return errors
 end
 
+---@return nil
+function Build:clear_errors()
+    self._errors = {}
+end
+
+---@param source ozone.Config.PluginSource.Git
+---@return string? checkout_target
+local function resolve_checkout_target(source)
+    return source.revision or source.version
+end
+
 ---@param spec ozone.Config.PluginSpec
 local function install_git_plugin(spec)
     local source = spec.source
@@ -49,8 +66,9 @@ local function install_git_plugin(spec)
     end
     if fs.exists(spec.path) then
         if fs.is_dir(spec.path) then
-            if source.version then
-                local checkout_success, checkout_err = git.checkout(spec.path, source.version)
+            local checkout_target = resolve_checkout_target(source)
+            if checkout_target then
+                local checkout_success, checkout_err = git.checkout(spec.path, checkout_target)
                 if not checkout_success then
                     error(checkout_err or "checkout failed", 0)
                 end
@@ -66,11 +84,169 @@ local function install_git_plugin(spec)
         error(clone_err or "clone failed", 0)
     end
 
-    if source.version then
-        local checkout_success, checkout_err = git.checkout(spec.path, source.version)
+    local checkout_target = resolve_checkout_target(source)
+    if checkout_target then
+        local checkout_success, checkout_err = git.checkout(spec.path, checkout_target)
         if not checkout_success then
             error(checkout_err or "checkout failed", 0)
         end
+    end
+end
+
+---@param spec ozone.Config.PluginSpec
+---@return boolean? success
+---@return string? err
+local function clone_git_plugin_if_needed(spec)
+    local source = spec.source
+    if source.kind ~= "git" then
+        return true, nil
+    end
+
+    if fs.exists(spec.path) then
+        if fs.is_dir(spec.path) then
+            return true, nil
+        end
+        return nil, ("install path exists and is not a directory: %s"):format(spec.path)
+    end
+
+    local clone_success, clone_err = git.clone(source.url, spec.path)
+    if not clone_success then
+        return nil, clone_err or "clone failed"
+    end
+
+    return true, nil
+end
+
+---@param spec ozone.Config.PluginSpec
+---@return ozone.Config.LockfilePluginSpec? lockfile_spec
+---@return string? err
+local function resolve_latest_lockfile_plugin(spec)
+    local source = spec.source
+    if source.kind ~= "git" then
+        return nil, nil
+    end
+
+    local cloned, clone_err = clone_git_plugin_if_needed(spec)
+    if not cloned then
+        return nil, clone_err
+    end
+
+    local fetched, fetch_err = git.fetch(spec.path)
+    if not fetched then
+        return nil, fetch_err
+    end
+
+    local revision = nil ---@type string?
+    local revision_err = nil ---@type string?
+    if source.version then
+        revision, revision_err = git.resolve_version_revision(spec.path, source.version)
+    else
+        revision, revision_err = git.remote_head_revision(spec.path)
+    end
+    if not revision then
+        return nil, revision_err
+    end
+
+    return {
+        url = source.url,
+        version = source.version,
+        revision = revision,
+    }, nil
+end
+
+---@param self ozone.Build
+---@param warnings string[]
+---@return nil
+local function report_warnings(self, warnings)
+    for _, message in ipairs(warnings) do
+        self:err("warning: %s", message)
+    end
+end
+
+---@param config ozone.Config
+---@param plugin_names_in_load_order string[]
+---@return nil
+function Build:_write_lockfile(config, plugin_names_in_load_order)
+    local plugins = config:get_plugins()
+    local lockfile = Lockfile.default()
+
+    for _, name in ipairs(plugin_names_in_load_order) do
+        local spec = plugins[name]
+        if spec and spec.source.kind == "git" then
+            if fs.is_dir(spec.path) then
+                local revision, revision_err = git.revision(spec.path)
+                if not revision then
+                    self:err(
+                        "plugin %q failed to resolve installed revision at %s: %s",
+                        name,
+                        spec.path,
+                        revision_err or "unknown error"
+                    )
+                else
+                    lockfile.plugins[name] = {
+                        url = spec.source.url,
+                        version = spec.source.version,
+                        revision = revision,
+                    }
+                end
+            end
+        end
+    end
+
+    local wrote, write_err = config:write_lockfile(lockfile)
+    if not wrote then
+        self:err("%s", write_err or "failed to write lock file")
+    end
+end
+
+---@param config ozone.Config
+---@return nil
+function Build:update_lockfile(config)
+    local plugins = config:get_plugins()
+    local plugin_names_in_load_order, warnings = config:get_plugin_names_in_load_order()
+    report_warnings(self, warnings)
+
+    local lockfile = config:read_lockfile()
+    local queue = Queue.Counting.new()
+
+    for _, name in ipairs(plugin_names_in_load_order) do
+        local spec = plugins[name]
+        if spec and spec.source.kind == "git" then
+            local callback = queue:callback()
+            coro.pspawn(function(success, ...)
+                if success then
+                    callback(true, ...)
+                else
+                    callback(false, ("plugin %q %s"):format(name, ...))
+                end
+            end, function()
+                local lockfile_spec, lockfile_plugin_err = resolve_latest_lockfile_plugin(spec)
+                return {
+                    name = name,
+                    lockfile_spec = lockfile_spec,
+                    err = lockfile_plugin_err,
+                }
+            end)
+        end
+    end
+
+    while not queue:is_completed() do
+        local co_success, result_or_err = queue:get()
+        if not co_success then
+            self:err("%s", result_or_err or "unknown error")
+        else
+            local result = result_or_err ---@type ozone.Build.LockfileUpdateResult
+            if result.lockfile_spec then
+                lockfile.plugins[result.name] = result.lockfile_spec
+            else
+                self:err("plugin %q failed to update lock data: %s", result.name, result.err or "unknown error")
+            end
+        end
+    end
+
+    local wrote, write_err = config:write_lockfile(lockfile)
+    if not wrote then
+        self:err("%s", write_err or "failed to write lock file")
     end
 end
 
@@ -133,9 +309,7 @@ function Build:generate_script(config)
     end
 
     local plugin_names_in_load_order, warnings = config:get_plugin_names_in_load_order()
-    for _, message in ipairs(warnings) do
-        self:err("warning: %s", message)
-    end
+    report_warnings(self, warnings)
 
     do
         local default_rtp = vim.opt.runtimepath:get() ---@type string[]
@@ -189,6 +363,8 @@ function Build:generate_script(config)
         self:err("failed to write generated script %s: %s", self._output_path, write_err or "unknown error")
         return nil
     end
+
+    self:_write_lockfile(config, plugin_names_in_load_order)
 
     return self._output_path
 end

@@ -52,6 +52,7 @@ end
 function ozone.run()
     assert(vim.v.vim_did_enter == 0)
     coro.wait(function()
+        build_instance:clear_errors()
         config:load()
         local script = build_instance:generate_script(config)
         if script then
@@ -62,6 +63,16 @@ function ozone.run()
                 chunk()
             end
         end
+        report_build_errors()
+    end)
+end
+
+---@return nil
+function ozone.update()
+    coro.wait(function()
+        build_instance:clear_errors()
+        config:load()
+        build_instance:update_lockfile(config)
         report_build_errors()
     end)
 end

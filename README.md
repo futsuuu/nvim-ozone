@@ -66,6 +66,22 @@ ozone.add({
 Missing dependencies and circular dependencies are reported as warnings, and loading continues with best-effort ordering.
 Invalid plugin specs or install failures are collected and reported together after the build step.
 
+### Updating Plugins
+
+nvim-ozone writes a lock file to `stdpath("config")/ozone-lock.json` after each successful build.
+Each git plugin entry stores `url`, optional `version`, and the resolved `revision`.
+
+Call `ozone.update()` to fetch all git plugins and update the lock file to the latest revisions:
+
+```lua
+require("ozone").update()
+```
+
+`ozone.update()` only updates lock data. The actual checkout happens on the next `ozone.run()`.
+When `version` is set on a plugin, `ozone.update()` keeps respecting that ref and updates the locked `revision`.
+
+Plugins removed from your build config are also removed from `ozone-lock.json` on the next build.
+
 ## Build Scripts
 
 Lua modules located in `stdpath("config")/lua/_build.lua` and `stdpath("config")/lua/_build/**/*.lua` are only evaluated during the build process.
