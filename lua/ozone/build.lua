@@ -18,6 +18,11 @@ Build.__index = Build
 ---@field path_is_dir boolean
 ---@field has_after_dir boolean
 
+---@class ozone.Build.LockfileUpdateResult
+---@field name string
+---@field lockfile_spec ozone.Config.LockfilePluginSpec?
+---@field err string?
+
 ---@return self
 function Build.new()
     return setmetatable({
@@ -202,14 +207,39 @@ function Build:update_lockfile(config)
     report_warnings(self, warnings)
 
     local lockfile = config:read_lockfile()
+    local queue = Queue.Counting.new()
+
     for _, name in ipairs(plugin_names_in_load_order) do
         local spec = plugins[name]
         if spec and spec.source.kind == "git" then
-            local lockfile_spec, lockfile_plugin_err = resolve_latest_lockfile_plugin(spec)
-            if lockfile_spec then
-                lockfile.plugins[name] = lockfile_spec
+            local callback = queue:callback()
+            coro.pspawn(function(success, ...)
+                if success then
+                    callback(true, ...)
+                else
+                    callback(false, ("plugin %q %s"):format(name, ...))
+                end
+            end, function()
+                local lockfile_spec, lockfile_plugin_err = resolve_latest_lockfile_plugin(spec)
+                return {
+                    name = name,
+                    lockfile_spec = lockfile_spec,
+                    err = lockfile_plugin_err,
+                }
+            end)
+        end
+    end
+
+    while not queue:is_completed() do
+        local co_success, result_or_err = queue:get()
+        if not co_success then
+            self:err("%s", result_or_err or "unknown error")
+        else
+            local result = result_or_err ---@type ozone.Build.LockfileUpdateResult
+            if result.lockfile_spec then
+                lockfile.plugins[result.name] = result.lockfile_spec
             else
-                self:err("plugin %q failed to update lock data: %s", name, lockfile_plugin_err or "unknown error")
+                self:err("plugin %q failed to update lock data: %s", result.name, result.err or "unknown error")
             end
         end
     end
