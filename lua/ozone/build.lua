@@ -213,7 +213,7 @@ function Build:update_lockfile(config)
         local spec = plugins[name]
         if spec and spec.source.kind == "git" then
             local callback = queue:callback()
-            coro.pspawn(function(success, ...)
+            coro.pspawn(function(_cx, success, ...)
                 if success then
                     callback(true, ...)
                 else
@@ -278,7 +278,7 @@ function Build:generate_script(config)
 
     for _, spec in pairs(plugins) do
         local callback = queue:callback()
-        coro.pspawn(function(success, ...)
+        coro.pspawn(function(_cx, success, ...)
             if success then
                 callback(true, ...)
             else
