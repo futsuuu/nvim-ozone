@@ -1,9 +1,10 @@
 local helper = require("test.helper")
 
+local common = require("common") ---@module "test.e2e.update.lua.common"
+
 local LOCK_PATH = vim.fs.joinpath(vim.fn.stdpath("config"), "ozone-lock.json")
-local META_PATH = vim.fs.joinpath(vim.fn.stdpath("state"), "update-meta.json")
 local STAGE_PATH = vim.fs.joinpath(vim.fn.stdpath("state"), "update-stage.json")
-local REMOVE_REMOVED_FLAG_PATH = vim.fs.joinpath(vim.fn.stdpath("state"), "update-remove-removed")
+local REMOVE_REMOVED_FLAG_PATH = common.REMOVE_REMOVED_FLAG_PATH
 
 ---@class test.e2e.update.Stage
 ---@field tracked_next_rev string
@@ -15,31 +16,6 @@ local REMOVE_REMOVED_FLAG_PATH = vim.fs.joinpath(vim.fn.stdpath("state"), "updat
 
 ---@class test.e2e.update.LockFile
 ---@field plugins table<string, test.e2e.update.LockPlugin>
-
----@param path string
----@return table?
-local function read_json(path)
-    local file = io.open(path, "r")
-    if not file then
-        return nil
-    end
-    local data = assert(file:read("*a"))
-    assert(file:close())
-    local ok, value_or_err = pcall(vim.json.decode, data)
-    assert(ok, value_or_err)
-    return value_or_err
-end
-
----@param path string
----@param value table
----@return nil
-local function write_json(path, value)
-    local dir_path = assert(vim.fs.dirname(path))
-    assert(1 == vim.fn.mkdir(dir_path, "p"))
-    local file = assert(io.open(path, "w"))
-    assert(file:write(vim.json.encode(value)))
-    assert(file:close())
-end
 
 ---@param path string
 ---@param value string
@@ -63,12 +39,12 @@ end
 
 ---@return test.e2e.update.LockFile
 local function read_lock_file()
-    local decoded = assert(read_json(LOCK_PATH))
+    local decoded = assert(common.read_json(LOCK_PATH)) --[[@as test.e2e.update.LockFile]]
     return decoded --[[@as test.e2e.update.LockFile]]
 end
 
-local meta = assert(read_json(META_PATH)) --[[@as test.e2e.update.Meta]]
-local stage = read_json(STAGE_PATH) --[[@as test.e2e.update.Stage?]]
+local meta = assert(common.read_json(common.META_PATH)) --[[@as test.e2e.update.Meta]]
+local stage = common.read_json(STAGE_PATH) --[[@as test.e2e.update.Stage?]]
 
 if stage == nil then
     assert(vim.g.update_tracked_value == "v1")
@@ -89,7 +65,7 @@ vim.g.update_tracked_value = "v2"
     local stage_data = {
         tracked_next_rev = tracked_next_rev,
     }
-    write_json(STAGE_PATH, stage_data)
+    common.write_json(STAGE_PATH, stage_data)
     write_text(REMOVE_REMOVED_FLAG_PATH, "1")
 
     require("ozone").update()
