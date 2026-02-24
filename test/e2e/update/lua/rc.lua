@@ -79,9 +79,9 @@ vim.g.update_tracked_value = "v2"
         vim.fs.joinpath(vim.fn.stdpath("data"), "ozone", "_", "tracked", "plugin", "tracked.lua")
     local tracked_plugin_source = read_text(tracked_plugin_file)
     assert(string.find(tracked_plugin_source, [["v1"]], 1, true) ~= nil)
-else
-    require("ozone").run()
 
+    require("ozone").clean()
+else
     assert(vim.g.update_tracked_value == "v2")
     assert(vim.g.update_versioned_value == "v1")
 
