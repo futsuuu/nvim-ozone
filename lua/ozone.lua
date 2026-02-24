@@ -9,13 +9,15 @@ local config = Config.new()
 ---@class ozone
 local ozone = {}
 
----@param opts? { all: boolean }
+---@class ozone.CleanOpts
+---@field all? boolean
+
+---@param opts? ozone.CleanOpts
 ---@return nil
 function ozone.clean(opts)
-    build_instance:clean()
-    if opts and opts.all then
-        config:clean()
-    end
+    opts = opts or {}
+    build_instance:clean(opts)
+    config:clean(opts)
 end
 
 ---@class ozone.PluginSpec

@@ -45,8 +45,12 @@ function Config.new()
     }, Config)
 end
 
-function Config:clean()
-    vim.fn.delete(self._install_root)
+---@param opts ozone.CleanOpts
+---@return nil
+function Config:clean(opts)
+    if opts.all then
+        vim.fn.delete(self._install_root)
+    end
 end
 
 ---@return nil
