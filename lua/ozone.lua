@@ -9,6 +9,15 @@ local config = Config.new()
 ---@class ozone
 local ozone = {}
 
+---@param opts? { all: boolean }
+---@return nil
+function ozone.clean(opts)
+    build_instance:clean()
+    if opts and opts.all then
+        config:clean()
+    end
+end
+
 ---@class ozone.PluginSpec
 --- Plugin directory path
 ---@field path? string

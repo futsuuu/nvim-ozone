@@ -38,6 +38,10 @@ function Build:err(fmt, ...)
     table.insert(self._errors, tostring(fmt):format(...))
 end
 
+function Build:clean()
+    vim.fn.delete(self._output_path)
+end
+
 ---@return string[] errors
 function Build:get_errors()
     local errors = {} ---@type string[]

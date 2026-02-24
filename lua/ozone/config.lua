@@ -45,6 +45,10 @@ function Config.new()
     }, Config)
 end
 
+function Config:clean()
+    vim.fn.delete(self._install_root)
+end
+
 ---@return nil
 function Config:load()
     self:set_lockfile(self:read_lockfile())
