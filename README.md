@@ -82,6 +82,22 @@ When `version` is set on a plugin, `ozone.update()` keeps respecting that ref an
 
 Plugins removed from your build config are also removed from `ozone-lock.json` on the next build.
 
+### Cleaning Generated Files
+
+Call `ozone.clean()` to remove the generated startup script:
+
+```lua
+require("ozone").clean()
+```
+
+To also remove installed plugin directories under `stdpath("data")/ozone`, pass `{ all = true }`:
+
+```lua
+require("ozone").clean({ all = true })
+```
+
+`ozone.clean()` does not delete `ozone-lock.json`.
+
 ## Build Scripts
 
 Lua modules located in `stdpath("config")/lua/_build.lua` and `stdpath("config")/lua/_build/**/*.lua` are only evaluated during the build process.

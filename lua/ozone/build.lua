@@ -38,6 +38,12 @@ function Build:err(fmt, ...)
     table.insert(self._errors, tostring(fmt):format(...))
 end
 
+---@param _opts ozone.CleanOpts
+---@return nil
+function Build:clean(_opts)
+    assert(vim.uv.fs_unlink(self._output_path))
+end
+
 ---@return string[] errors
 function Build:get_errors()
     local errors = {} ---@type string[]

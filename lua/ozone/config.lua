@@ -45,6 +45,16 @@ function Config.new()
     }, Config)
 end
 
+---@param opts ozone.CleanOpts
+---@return nil
+function Config:clean(opts)
+    if opts.all then
+        if 0 ~= vim.fn.delete(self._install_root, "rf") then
+            error(("failed to remove a directory %s; please remove it manually"):format(self._install_root))
+        end
+    end
+end
+
 ---@return nil
 function Config:load()
     self:set_lockfile(self:read_lockfile())
