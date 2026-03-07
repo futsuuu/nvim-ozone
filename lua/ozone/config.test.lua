@@ -41,7 +41,7 @@ runner.add("add_plugin() resolves git specs with default install path", function
     assert(resolved.source.kind == "git")
     assert(resolved.source.url == "https://github.com/author/repo")
     assert(resolved.source.version == "v1.2.3")
-    assert(resolved.source.revision == nil)
+    assert(resolved.source.hash == nil)
 end)
 
 runner.add("add_plugin() rejects duplicate plugin names", function()
@@ -69,27 +69,27 @@ runner.add("add_plugin() validates version source requirements", function()
     assert(string.match(err, "'version_without_url.version' requires 'version_without_url.url'") ~= nil)
 end)
 
-runner.add("add_plugin() applies locked revision from lock file data", function()
+runner.add("add_plugin() applies locked hash from lock file data", function()
     local config = Config.new()
     local lockfile = Lockfile.default()
-    lockfile.plugins.revision_plugin = {
+    lockfile.plugins.hash_plugin = {
         url = "https://github.com/author/repo",
         version = "v1.2.3",
-        revision = "0123456789abcdef",
+        hash = "0123456789abcdef",
     }
     config:set_lockfile(lockfile)
 
-    local resolved = config:add_plugin("revision_plugin", {
+    local resolved = config:add_plugin("hash_plugin", {
         url = "https://github.com/author/repo",
         version = "v1.2.3",
     })
 
-    assert(resolved.name == "revision_plugin")
-    assert(resolved.path == vim.fs.joinpath(vim.fn.stdpath("data"), "ozone", "_", "revision_plugin"))
+    assert(resolved.name == "hash_plugin")
+    assert(resolved.path == vim.fs.joinpath(vim.fn.stdpath("data"), "ozone", "_", "hash_plugin"))
     assert(resolved.source.kind == "git")
     assert(resolved.source.url == "https://github.com/author/repo")
     assert(resolved.source.version == "v1.2.3")
-    assert(resolved.source.revision == "0123456789abcdef")
+    assert(resolved.source.hash == "0123456789abcdef")
 end)
 
 runner.add("add_plugin() requires path or url", function()

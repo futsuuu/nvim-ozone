@@ -7,12 +7,12 @@ local STAGE_PATH = vim.fs.joinpath(vim.fn.stdpath("state"), "update-stage.json")
 local REMOVE_REMOVED_FLAG_PATH = common.REMOVE_REMOVED_FLAG_PATH
 
 ---@class test.e2e.update.Stage
----@field tracked_next_rev string
+---@field tracked_next_hash string
 
 ---@class test.e2e.update.LockfilePlugin
 ---@field url string
 ---@field version? string
----@field revision? string
+---@field hash? string
 
 ---@class test.e2e.update.Lockfile
 ---@field plugins table<string, test.e2e.update.LockfilePlugin>
@@ -52,18 +52,18 @@ if stage == nil then
     assert(vim.g.update_removed_value == "present")
 
     local lockfile_before_update = read_lockfile()
-    assert(lockfile_before_update.plugins.tracked.revision == meta.tracked_rev)
-    assert(lockfile_before_update.plugins.versioned.revision == meta.versioned_rev)
+    assert(lockfile_before_update.plugins.tracked.hash == meta.tracked_rev)
+    assert(lockfile_before_update.plugins.versioned.hash == meta.versioned_rev)
     assert(lockfile_before_update.plugins.removed ~= nil)
 
-    local tracked_next_rev = helper.git_commit(meta.tracked_repo, {
+    local tracked_next_hash = helper.git_commit(meta.tracked_repo, {
         ["plugin/tracked.lua"] = [[
 vim.g.update_tracked_value = "v2"
 ]],
     })
 
     local stage_data = {
-        tracked_next_rev = tracked_next_rev,
+        tracked_next_hash = tracked_next_hash,
     }
     common.write_json(STAGE_PATH, stage_data)
     write_text(REMOVE_REMOVED_FLAG_PATH, "1")
@@ -71,8 +71,8 @@ vim.g.update_tracked_value = "v2"
     require("ozone").update()
 
     local lockfile_after_update = read_lockfile()
-    assert(lockfile_after_update.plugins.tracked.revision == tracked_next_rev)
-    assert(lockfile_after_update.plugins.versioned.revision == meta.versioned_rev)
+    assert(lockfile_after_update.plugins.tracked.hash == tracked_next_hash)
+    assert(lockfile_after_update.plugins.versioned.hash == meta.versioned_rev)
     assert(lockfile_after_update.plugins.removed ~= nil)
 
     local tracked_plugin_file =
@@ -86,7 +86,7 @@ else
     assert(vim.g.update_versioned_value == "v1")
 
     local lockfile_after_run = read_lockfile()
-    assert(lockfile_after_run.plugins.tracked.revision == stage.tracked_next_rev)
-    assert(lockfile_after_run.plugins.versioned.revision == meta.versioned_rev)
+    assert(lockfile_after_run.plugins.tracked.hash == stage.tracked_next_hash)
+    assert(lockfile_after_run.plugins.versioned.hash == meta.versioned_rev)
     assert(lockfile_after_run.plugins.removed == nil)
 end
