@@ -61,7 +61,7 @@ end
 ---@param source ozone.Config.PluginSource.Git
 ---@return string? checkout_target
 local function resolve_checkout_target(source)
-    return source.revision or source.version
+    return source.hash or source.version
 end
 
 ---@param spec ozone.Config.PluginSpec
@@ -142,21 +142,21 @@ local function resolve_latest_lockfile_plugin(spec)
         return nil, fetch_err
     end
 
-    local revision = nil ---@type string?
-    local revision_err = nil ---@type string?
+    local hash = nil ---@type string?
+    local hash_err = nil ---@type string?
     if source.version then
-        revision, revision_err = git.resolve_version_revision(spec.path, source.version)
+        hash, hash_err = git.resolve_version_hash(spec.path, source.version)
     else
-        revision, revision_err = git.remote_head_revision(spec.path)
+        hash, hash_err = git.remote_head_hash(spec.path)
     end
-    if not revision then
-        return nil, revision_err
+    if not hash then
+        return nil, hash_err
     end
 
     return {
         url = source.url,
         version = source.version,
-        revision = revision,
+        hash = hash,
     }, nil
 end
 
@@ -180,19 +180,19 @@ function Build:_write_lockfile(config, plugin_names_in_load_order)
         local spec = plugins[name]
         if spec and spec.source.kind == "git" then
             if fs.is_dir(spec.path) then
-                local revision, revision_err = git.revision(spec.path)
-                if not revision then
+                local hash, hash_err = git.hash(spec.path)
+                if not hash then
                     self:err(
-                        "plugin %q failed to resolve installed revision at %s: %s",
+                        "plugin %q failed to resolve installed hash at %s: %s",
                         name,
                         spec.path,
-                        revision_err or "unknown error"
+                        hash_err or "unknown error"
                     )
                 else
                     lockfile.plugins[name] = {
                         url = spec.source.url,
                         version = spec.source.version,
-                        revision = revision,
+                        hash = hash,
                     }
                 end
             end
