@@ -73,7 +73,7 @@ function Lockfile:encode()
         local plugin = self.plugins[name]
         buf:putf("\n    %s: {", vim.json.encode(name))
             :putf('\n      "url": %s', vim.json.encode(plugin.url))
-            :putf(',\n      "version": %s', vim.json.encode(plugin.version))
+            :putf(',\n      "ref": %s', vim.json.encode(plugin.ref))
             :putf(',\n      "hash": %s', vim.json.encode(plugin.hash))
             :putf("\n    }%s", i == #names and "" or ",")
     end

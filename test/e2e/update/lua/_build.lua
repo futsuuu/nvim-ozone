@@ -68,7 +68,7 @@ local specs = {
     },
     versioned = {
         url = meta.versioned_repo,
-        version = "v1",
+        tag = "v1",
     },
 } ---@type table<string, ozone.PluginSpec>
 

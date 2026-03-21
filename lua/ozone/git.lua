@@ -85,16 +85,16 @@ function M.hash(path)
 end
 
 ---@param path string
----@param version string
+---@param ref string
 ---@return string? hash
 ---@return string? err
-function M.resolve_version_hash(path, version)
-    local hash, rev_parse_err = M.rev_parse(path, version)
+function M.resolve_ref_hash(path, ref)
+    local hash, rev_parse_err = M.rev_parse(path, ref)
     if hash then
         return hash, nil
     end
 
-    hash, rev_parse_err = M.rev_parse(path, "origin/" .. version)
+    hash, rev_parse_err = M.rev_parse(path, "origin/" .. ref)
     if hash then
         return hash, nil
     end
@@ -133,23 +133,23 @@ function M.fetch(path)
 end
 
 ---@param path string
----@param version string
+---@param ref string
 ---@return boolean? success
 ---@return string? err
-function M.checkout(path, version)
+function M.checkout(path, ref)
     local result, system_err = run_system({
         "git",
         "-C",
         path,
         "checkout",
-        version,
+        ref,
     }, { text = true })
     if not result then
-        return nil, ("checkout failed: %s at %s: %s"):format(version, path, system_err or "unknown error")
+        return nil, ("checkout failed: %s at %s: %s"):format(ref, path, system_err or "unknown error")
     end
 
     if not is_success(result) then
-        return nil, format_system_failure(("checkout failed: %s at %s"):format(version, path), result)
+        return nil, format_system_failure(("checkout failed: %s at %s"):format(ref, path), result)
     end
 
     return true, nil

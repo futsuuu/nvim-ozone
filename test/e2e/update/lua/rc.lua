@@ -11,7 +11,7 @@ local REMOVE_REMOVED_FLAG_PATH = common.REMOVE_REMOVED_FLAG_PATH
 
 ---@class test.e2e.update.LockfilePlugin
 ---@field url string
----@field version? string
+---@field ref? string
 ---@field hash? string
 
 ---@class test.e2e.update.Lockfile
