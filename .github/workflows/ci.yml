@@ -30,7 +30,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v4
       - run: mise tasks run test
 
   check:
@@ -47,7 +47,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v4
       - run: mise tasks run check
 
   format:
@@ -65,7 +65,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v4
       - run: mise tasks run fmt
       - uses: stefanzweifel/git-auto-commit-action@v7
         with:
