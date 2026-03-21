@@ -25,12 +25,12 @@ Config.__index = Config
 ---@class ozone.Config.PluginSource.Git
 ---@field kind "git"
 ---@field url string
----@field version? string
+---@field ref? string
 ---@field hash? string
 
 ---@class ozone.Config.LockfilePluginSpec
 ---@field url string
----@field version? string
+---@field ref? string
 ---@field hash? string
 
 ---@return self
@@ -198,17 +198,17 @@ end
 ---@private
 ---@param name string
 ---@param url string
----@param version? string
+---@param ref? string
 ---@return string? hash
-function Config:_resolve_locked_hash(name, url, version)
+function Config:_resolve_locked_hash(name, url, ref)
     local lockfile_plugin = self._lockfile.plugins[name]
     if lockfile_plugin == nil then
         return nil
     end
 
     local is_same_source = lockfile_plugin.url == url
-    local is_same_version = lockfile_plugin.version == version
-    if is_same_source and is_same_version then
+    local is_same_ref = lockfile_plugin.ref == ref
+    if is_same_source and is_same_ref then
         return lockfile_plugin.hash
     end
 
@@ -268,16 +268,45 @@ function Config:add_plugin(name, spec)
             error(("invalid '%s.url' (non-empty string expected)"):format(name))
         end
     end
-    if spec.version ~= nil then
-        if type(spec.version) ~= "string" then
-            error(("invalid type of '%s.version' (string expected, got %s)"):format(name, type(spec.version)))
-        elseif spec.version == "" then
-            error(("invalid '%s.version' (non-empty string expected)"):format(name))
+    local source_ref = nil ---@type string?
+    local source_ref_field = nil ---@type string?
+    if spec.branch ~= nil then
+        if type(spec.branch) ~= "string" then
+            error(("invalid type of '%s.branch' (string expected, got %s)"):format(name, type(spec.branch)))
+        elseif spec.branch == "" then
+            error(("invalid '%s.branch' (non-empty string expected)"):format(name))
         end
+        source_ref = spec.branch
+        source_ref_field = "branch"
+    end
+    if spec.tag ~= nil then
+        if type(spec.tag) ~= "string" then
+            error(("invalid type of '%s.tag' (string expected, got %s)"):format(name, type(spec.tag)))
+        elseif spec.tag == "" then
+            error(("invalid '%s.tag' (non-empty string expected)"):format(name))
+        end
+        if source_ref ~= nil then
+            error(("only one of '%s.branch', '%s.tag', and '%s.hash' can be set"):format(name, name, name))
+        end
+        source_ref = spec.tag
+        source_ref_field = "tag"
+    end
+    if spec.hash ~= nil then
+        if type(spec.hash) ~= "string" then
+            error(("invalid type of '%s.hash' (string expected, got %s)"):format(name, type(spec.hash)))
+        elseif spec.hash == "" then
+            error(("invalid '%s.hash' (non-empty string expected)"):format(name))
+        end
+        if source_ref ~= nil then
+            error(("only one of '%s.branch', '%s.tag', and '%s.hash' can be set"):format(name, name, name))
+        end
+        source_ref = spec.hash
+        source_ref_field = "hash"
     end
 
-    if spec.version ~= nil and spec.url == nil then
-        error(("'%s.version' requires '%s.url'"):format(name, name))
+    if source_ref ~= nil and spec.url == nil then
+        assert(source_ref_field)
+        error(("'%s.%s' requires '%s.url'"):format(name, source_ref_field, name))
     end
 
     if spec.path == nil and spec.url == nil then
@@ -298,15 +327,14 @@ function Config:add_plugin(name, spec)
     local resolved_spec = nil ---@type ozone.Config.PluginSpec?
     if spec.url then
         local source_url = assert(spec.url)
-        local source_version = spec.version
         resolved_spec = {
             name = name,
             path = spec.path or self:_default_plugin_path(name),
             source = {
                 kind = "git",
                 url = source_url,
-                version = source_version,
-                hash = self:_resolve_locked_hash(name, source_url, source_version),
+                ref = source_ref,
+                hash = self:_resolve_locked_hash(name, source_url, source_ref),
             },
             deps = {},
         }

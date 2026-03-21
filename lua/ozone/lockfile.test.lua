@@ -6,7 +6,7 @@ runner.add("encode() formats lock file deterministically", function()
     local first_lockfile = Lockfile.default()
     first_lockfile.plugins.zebra = {
         url = "https://example.com/zebra",
-        version = "v1.0.0",
+        ref = "v1.0.0",
         hash = "hash-z",
     }
     first_lockfile.plugins.alpha = {
@@ -21,7 +21,7 @@ runner.add("encode() formats lock file deterministically", function()
     }
     second_lockfile.plugins.zebra = {
         url = "https://example.com/zebra",
-        version = "v1.0.0",
+        ref = "v1.0.0",
         hash = "hash-z",
     }
 
@@ -33,12 +33,12 @@ runner.add("encode() formats lock file deterministically", function()
   "plugins": {
     "alpha": {
       "url": "https://example.com/alpha",
-      "version": null,
+      "ref": null,
       "hash": "hash-a"
     },
     "zebra": {
       "url": "https://example.com/zebra",
-      "version": "v1.0.0",
+      "ref": "v1.0.0",
       "hash": "hash-z"
     }
   }
@@ -49,13 +49,13 @@ runner.add("encode() formats lock file deterministically", function()
     assert(second == expected)
 end)
 
-runner.add("decode() keeps null fields encodable", function()
+runner.add("decode() keeps null ref fields encodable", function()
     local before = [[
 {
   "plugins": {
     "tracked": {
       "url": "https://example.com/tracked",
-      "version": null,
+      "ref": null,
       "hash": "hash-1"
     }
   }
@@ -63,7 +63,7 @@ runner.add("decode() keeps null fields encodable", function()
 ]]
 
     local decoded = Lockfile.decode(before)
-    assert(decoded.plugins.tracked.version == nil)
+    assert(decoded.plugins.tracked.ref == nil)
 
     local after = decoded:encode()
     local expected = [[
@@ -71,7 +71,7 @@ runner.add("decode() keeps null fields encodable", function()
   "plugins": {
     "tracked": {
       "url": "https://example.com/tracked",
-      "version": null,
+      "ref": null,
       "hash": "hash-1"
     }
   }

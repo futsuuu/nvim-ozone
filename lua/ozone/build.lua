@@ -61,7 +61,7 @@ end
 ---@param source ozone.Config.PluginSource.Git
 ---@return string? checkout_target
 local function resolve_checkout_target(source)
-    return source.hash or source.version
+    return source.hash or source.ref
 end
 
 ---@param spec ozone.Config.PluginSpec
@@ -144,8 +144,8 @@ local function resolve_latest_lockfile_plugin(spec)
 
     local hash = nil ---@type string?
     local hash_err = nil ---@type string?
-    if source.version then
-        hash, hash_err = git.resolve_version_hash(spec.path, source.version)
+    if source.ref then
+        hash, hash_err = git.resolve_ref_hash(spec.path, source.ref)
     else
         hash, hash_err = git.remote_head_hash(spec.path)
     end
@@ -155,7 +155,7 @@ local function resolve_latest_lockfile_plugin(spec)
 
     return {
         url = source.url,
-        version = source.version,
+        ref = source.ref,
         hash = hash,
     }, nil
 end
@@ -191,7 +191,7 @@ function Build:_write_lockfile(config, plugin_names_in_load_order)
                 else
                     lockfile.plugins[name] = {
                         url = spec.source.url,
-                        version = spec.source.version,
+                        ref = spec.source.ref,
                         hash = hash,
                     }
                 end

@@ -38,6 +38,6 @@ ozone.add({
     },
     versioned = {
         url = versioned_repo,
-        version = versioned_rev,
+        hash = versioned_rev,
     },
 })

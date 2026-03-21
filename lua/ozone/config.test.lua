@@ -33,14 +33,14 @@ runner.add("add_plugin() resolves git specs with default install path", function
 
     local resolved = config:add_plugin("remote_plugin", {
         url = "https://github.com/author/repo",
-        version = "v1.2.3",
+        branch = "main",
     })
 
     assert(resolved.name == "remote_plugin")
     assert(resolved.path == vim.fs.joinpath(vim.fn.stdpath("data"), "ozone", "_", "remote_plugin"))
     assert(resolved.source.kind == "git")
     assert(resolved.source.url == "https://github.com/author/repo")
-    assert(resolved.source.version == "v1.2.3")
+    assert(resolved.source.ref == "main")
     assert(resolved.source.hash == nil)
 end)
 
@@ -58,15 +58,27 @@ runner.add("add_plugin() rejects duplicate plugin names", function()
     assert(string.match(err, 'plugin name "dup_plugin" is duplicated %(definition #2%)') ~= nil)
 end)
 
-runner.add("add_plugin() validates version source requirements", function()
+runner.add("add_plugin() validates ref source requirements", function()
     local config = Config.new()
-    local ok, err = pcall(config.add_plugin, config, "version_without_url", {
-        path = vim.fn.stdpath("cache") .. "/plugins/version_without_url",
-        version = "main",
+    local ok, err = pcall(config.add_plugin, config, "branch_without_url", {
+        path = vim.fn.stdpath("cache") .. "/plugins/branch_without_url",
+        branch = "main",
     })
     assert(ok == false)
     assert(type(err) == "string")
-    assert(string.match(err, "'version_without_url.version' requires 'version_without_url.url'") ~= nil)
+    assert(string.match(err, "'branch_without_url.branch' requires 'branch_without_url.url'") ~= nil)
+end)
+
+runner.add("add_plugin() accepts only one git ref field", function()
+    local config = Config.new()
+    local ok, err = pcall(config.add_plugin, config, "multiple_refs", {
+        url = "https://github.com/author/repo",
+        branch = "main",
+        tag = "v1.2.3",
+    })
+    assert(ok == false)
+    assert(type(err) == "string")
+    assert(string.match(err, "only one of") ~= nil)
 end)
 
 runner.add("add_plugin() applies locked hash from lock file data", function()
@@ -74,21 +86,21 @@ runner.add("add_plugin() applies locked hash from lock file data", function()
     local lockfile = Lockfile.default()
     lockfile.plugins.hash_plugin = {
         url = "https://github.com/author/repo",
-        version = "v1.2.3",
+        ref = "v1.2.3",
         hash = "0123456789abcdef",
     }
     config:set_lockfile(lockfile)
 
     local resolved = config:add_plugin("hash_plugin", {
         url = "https://github.com/author/repo",
-        version = "v1.2.3",
+        tag = "v1.2.3",
     })
 
     assert(resolved.name == "hash_plugin")
     assert(resolved.path == vim.fs.joinpath(vim.fn.stdpath("data"), "ozone", "_", "hash_plugin"))
     assert(resolved.source.kind == "git")
     assert(resolved.source.url == "https://github.com/author/repo")
-    assert(resolved.source.version == "v1.2.3")
+    assert(resolved.source.ref == "v1.2.3")
     assert(resolved.source.hash == "0123456789abcdef")
 end)
 
