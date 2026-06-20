@@ -29,7 +29,7 @@ jobs:
       MISE_ENV: ${{ matrix.nvim }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
       - run: mise tasks run test
 
@@ -46,7 +46,7 @@ jobs:
       MISE_ENV: check,${{ matrix.nvim }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
       - run: mise tasks run check
 
@@ -64,7 +64,7 @@ jobs:
       MISE_ENV: check
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
       - run: mise tasks run fmt
       - uses: stefanzweifel/git-auto-commit-action@v7
