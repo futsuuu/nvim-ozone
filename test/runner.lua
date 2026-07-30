@@ -31,9 +31,7 @@ function Case.new(name, fn)
 end
 
 function Case:run()
-    local full_name = debug.getinfo(self.fn --[[@as function]], "S").short_src
-        .. " :: "
-        .. self.name
+    local full_name = debug.getinfo(self.fn --[[@as function]], "S").short_src .. " :: " .. self.name
     io.stderr:write(" start: ", full_name, "\n")
     -- TODO: handle errors
     coro.wait(self.fn)
